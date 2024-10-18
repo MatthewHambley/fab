@@ -386,6 +386,8 @@ class Gfortran(FortranCompiler):
 
 
 # ============================================================================
+# intel-classic
+#
 class Icc(CCompiler):
     '''Class for the Intel's icc compiler.
 
@@ -398,20 +400,6 @@ class Icc(CCompiler):
         super().__init__(name, exec_name, suite="intel-classic",
                          openmp_flag="-qopenmp",
                          version_regex=r"icc \(ICC\) (\d[\d\.]+\d) ")
-
-
-# ============================================================================
-class Icx(CCompiler):
-    '''Class for the Intel's new llvm based icx compiler.
-
-    :param name: name of this compiler.
-    :param exec_name: name of the executable.
-    '''
-    def __init__(self, name: str = "icx", exec_name: str = "icx"):
-        super().__init__(name, exec_name, suite="intel-llvm",
-                         openmp_flag="-qopenmp",
-                         version_regex=(r"Intel\(R\) oneAPI DPC\+\+/C\+\+ "
-                                        r"Compiler (\d[\d\.]+\d) "))
 
 
 # ============================================================================
@@ -432,6 +420,22 @@ class Ifort(FortranCompiler):
 
 
 # ============================================================================
+# intel-llvm
+#
+class Icx(CCompiler):
+    '''Class for the Intel's new llvm based icx compiler.
+
+    :param name: name of this compiler.
+    :param exec_name: name of the executable.
+    '''
+    def __init__(self, name: str = "icx", exec_name: str = "icx"):
+        super().__init__(name, exec_name, suite="intel-llvm",
+                         openmp_flag="-qopenmp",
+                         version_regex=(r"Intel\(R\) oneAPI DPC\+\+/C\+\+ "
+                                        r"Compiler (\d[\d\.]+\d) "))
+
+
+# ============================================================================
 class Ifx(FortranCompiler):
     '''Class for Intel's new ifx compiler.
 
@@ -445,3 +449,67 @@ class Ifx(FortranCompiler):
                          openmp_flag="-qopenmp",
                          syntax_only_flag="-syntax-only",
                          version_regex=r"ifx \(IFORT\) (\d[\d\.]+\d) ")
+
+
+# ============================================================================
+# nvidia
+#
+class Nvc(CCompiler):
+    '''Class for Nvidia's nvc compiler. Nvc has a '-' in the
+    version number. In order to get this, we overwrite run_version_command
+    and replace any '-' with a '.'
+
+    :param name: name of this compiler.
+    :param exec_name: name of the executable.
+    '''
+
+    def __init__(self, name: str = "nvc", exec_name: str = "nvc"):
+        super().__init__(name, exec_name, suite="nvidia",
+                         openmp_flag="-mp",
+                         version_regex=r"nvc (\d[\d\.-]+\d)")
+
+    def run_version_command(
+            self, version_command: Optional[str] = '--version') -> str:
+        '''Run the compiler's command to get its version. This implementation
+        runs the function in the base class, and changes any '-' into a
+        '.' to support nvidia version numbers which have dashes, e.g. 23.5-0.
+
+        :param version_command: The compiler argument used to get version info.
+
+        :returns: The output from the version command, with any '-' replaced
+            with '.'
+        '''
+        version_string = super().run_version_command()
+        return version_string.replace("-", ".")
+
+
+# ============================================================================
+class Nvfortran(FortranCompiler):
+    '''Class for Nvidia's nvfortran compiler. Nvfortran has a '-' in the
+    version number. In order to get this, we overwrite run_version_command
+    and replace any '-' with a '.'
+
+    :param name: name of this compiler.
+    :param exec_name: name of the executable.
+    '''
+
+    def __init__(self, name: str = "nvfortran", exec_name: str = "nvfortran"):
+        super().__init__(name, exec_name, suite="nvidia",
+                         module_folder_flag="-module",
+                         openmp_flag="-mp",
+                         syntax_only_flag="-Msyntax-only",
+                         version_regex=r"nvfortran (\d[\d\.-]+\d)")
+
+    def run_version_command(
+            self, version_command: Optional[str] = '--version') -> str:
+        '''Run the compiler's command to get its version. This implementation
+        runs the function in the base class, and changes any '-' into a
+        '.' to support nvidia version numbers which have dashes, e.g. 23.5-0.
+
+        :param version_command: The compiler argument used to get version info.
+
+        :returns: The output from the version command, with any '-' replaced
+            with '.'
+        '''
+        version_string = super().run_version_command()
+        return version_string.replace("-", ".")
