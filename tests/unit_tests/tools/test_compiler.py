@@ -843,7 +843,7 @@ def test_nvfortran_get_version_with_ifort_string():
 def test_craycc():
     '''Tests the Craycc class.'''
     craycc = Craycc()
-    assert craycc.name == "craycc-cray"
+    assert craycc.name == "craycc-cc"
     assert isinstance(craycc, CCompiler)
     assert craycc.category == Category.C_COMPILER
     assert craycc.mpi
@@ -909,7 +909,7 @@ def test_craycc_get_version_with_icc_string():
 def test_crayftn():
     '''Tests the Crayftn class.'''
     crayftn = Crayftn()
-    assert crayftn.name == "crayftn-cray"
+    assert crayftn.name == "crayftn-ftn"
     assert isinstance(crayftn, FortranCompiler)
     assert crayftn.category == Category.FORTRAN_COMPILER
     assert crayftn.mpi
