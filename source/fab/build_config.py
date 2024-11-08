@@ -56,9 +56,13 @@ class BuildConfig():
             created from this name, with spaces replaced by underscores.
         :param tool_box: The ToolBox with all tools to use in the build.
         :param mpi: whether the project uses MPI or not. This is used to
-            pick a default compiler (if not explicitly set in the ToolBox),
-            and controls PSyclone parameters.
-        :param openmp: whether the project should use OpenMP or not.
+            pick a default compiler (if none is explicitly set in the
+            ToolBox), and controls PSyclone parameters.
+        :param openmp: as with `mpi`, this controls whether the project is
+            using OpenMP or not. This is used to pick a default compiler
+            (if none is explicitly set in the ToolBox). The compiler-specific
+            flag to enable OpenMP will automatically be added when compiling
+            and linking.
         :param multiprocessing:
             An option to disable multiprocessing to aid debugging.
         :param n_procs:
