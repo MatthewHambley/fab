@@ -49,6 +49,33 @@ def test_compiler():
             in str(err.value))
 
 
+def test_compiler_openmp():
+    '''Test that the openmp flag is correctly reflected in the test if
+    a compiler supports OpenMP or not.'''
+    cc = CCompiler("gcc", "gcc", "gnu", openmp_flag="-fopenmp")
+    assert cc.openmp_flag == "-fopenmp"
+    assert cc.openmp
+    cc = CCompiler("gcc", "gcc", "gnu", openmp_flag=None)
+    assert cc.openmp_flag == ""
+    assert not cc.openmp
+    cc = CCompiler("gcc", "gcc", "gnu")
+    assert cc.openmp_flag == ""
+    assert not cc.openmp
+
+    fc = FortranCompiler("gfortran", "gfortran", "gnu", openmp_flag="-fopenmp",
+                         module_folder_flag="-J")
+    assert fc.openmp_flag == "-fopenmp"
+    assert fc.openmp
+    fc = FortranCompiler("gfortran", "gfortran", "gnu", openmp_flag=None,
+                         module_folder_flag="-J")
+    assert fc.openmp_flag == ""
+    assert not fc.openmp
+    fc = FortranCompiler("gfortran", "gfortran", "gnu",
+                         module_folder_flag="-J")
+    assert fc.openmp_flag == ""
+    assert not fc.openmp
+
+
 def test_compiler_check_available():
     '''Check if check_available works as expected. The compiler class uses
     internally get_version to test if a compiler works or not. Check the

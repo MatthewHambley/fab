@@ -36,7 +36,8 @@ class Compiler(CompilerSuiteTool):
         compilation (not linking).
     :param output_flag: the compilation flag to use to indicate the name
         of the output file
-    :param openmp_flag: the flag to use to enable OpenMP
+    :param openmp_flag: the flag to use to enable OpenMP. If no flag is
+        specified, it is assumed that the compiler does not support OpenMP.
     '''
 
     # pylint: disable=too-many-arguments
@@ -60,6 +61,12 @@ class Compiler(CompilerSuiteTool):
         '''
         return (zlib.crc32(self.name.encode()) +
                 zlib.crc32(self.get_version_string().encode()))
+
+    @property
+    def openmp(self) -> bool:
+        ''':returns: if the compiler supports openmp or not
+        '''
+        return self._openmp_flag != ""
 
     @property
     def openmp_flag(self) -> str:

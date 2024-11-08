@@ -85,7 +85,8 @@ class BuildConfig():
         self._openmp = openmp
         self.two_stage = two_stage
         self.verbose = verbose
-        compiler = tool_box.get_tool(Category.FORTRAN_COMPILER, mpi=mpi)
+        compiler = tool_box.get_tool(Category.FORTRAN_COMPILER, mpi=mpi,
+                                     openmp=openmp)
         project_label = Template(project_label).safe_substitute(
             compiler=compiler.name,
             two_stage=f'{int(two_stage)+1}stage')

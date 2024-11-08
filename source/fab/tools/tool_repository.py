@@ -132,7 +132,8 @@ class ToolRepository(dict):
                                    f"in the suite '{suite}'.")
 
     def get_default(self, category: Category,
-                    mpi: Optional[bool] = None):
+                    mpi: Optional[bool] = None,
+                    openmp: Optional[bool] = None):
         '''Returns the default tool for a given category. For most tools
         that will be the first entry in the list of tools. The exception
         are compilers and linker: in this case it must be specified if
@@ -141,6 +142,7 @@ class ToolRepository(dict):
 
         :param category: the category for which to return the default tool.
         :param mpi: if a compiler or linker is required that supports MPI.
+        :param open: if a compiler or linker is required that supports OpenMP.
 
         :raises KeyError: if the category does not exist.
         :raises RuntimeError: if no compiler/linker is found with the
@@ -159,11 +161,29 @@ class ToolRepository(dict):
             raise RuntimeError(f"Invalid or missing mpi specification "
                                f"for '{category}'.")
 
+        if not isinstance(openmp, bool):
+            raise RuntimeError(f"Invalid or missing openmp specification "
+                               f"for '{category}'.")
+
         for tool in self[category]:
-            # If the tool supports/does not support MPI, return the first one
+            # If OpenMP is request, but the tool does not support openmp,
+            # ignore it.
+            if openmp and not tool.openmp:
+                continue
+            # If the tool supports/does not support MPI, return it.
             if mpi == tool.mpi:
                 return tool
 
         # Don't bother returning an MPI enabled tool if no-MPI is requested -
         # that seems to be an unlikely scenario.
-        raise RuntimeError(f"Could not find '{category}' that supports MPI.")
+        if mpi:
+            if openmp:
+                raise RuntimeError(f"Could not find '{category}' that "
+                                   f"supports MPI and OpenMP.")
+            raise RuntimeError(f"Could not find '{category}' that "
+                               f"supports MPI.")
+
+        if openmp:
+            raise RuntimeError(f"Could not find '{category}' that "
+                               f"supports OpenMP.")
+        raise RuntimeError(f"Could not find any '{category}'.")

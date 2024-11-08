@@ -46,13 +46,18 @@ class ToolBox:
                           f"'{tool}'.")
         self._all_tools[tool.category] = tool
 
-    def get_tool(self, category: Category, mpi: Optional[bool] = None) -> Tool:
+    def get_tool(self, category: Category, mpi: Optional[bool] = None,
+                 openmp: Optional[bool] = None) -> Tool:
         '''Returns the tool for the specified category.
 
         :param category: the name of the category in which to look
             for the tool.
-        :param mpi: if no compiler or linker is specified when requesting one,
-            use the MPI setting to find an appropriate default.
+        :param mpi: if no compiler or linker is explicitly specified in this
+            tool box, use the MPI and OpenMP setting to find an appropriate
+            default from the tool repository.
+        :param mpi: if no compiler or linker is explicitly specified in this
+            tool box, use the MPI and OpenMP setting to find an appropriate
+            default from the tool repository.
 
         :raises KeyError: if the category is not known.
         '''
@@ -69,6 +74,6 @@ class ToolBox:
         # from the ToolRepository, and add it, so we don't need to look
         # it up again later.
         tr = ToolRepository()
-        tool = tr.get_default(category, mpi=mpi)
+        tool = tr.get_default(category, mpi=mpi, openmp=openmp)
         self._all_tools[category] = tool
         return tool
