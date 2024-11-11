@@ -522,7 +522,7 @@ class Nvfortran(FortranCompiler):
 class Craycc(CCompiler):
     '''Class for the native Cray C compiler. Since cc is actually a compiler
     wrapper, follow the naming scheme of a compiler wrapper and call it:
-    craycc-cray.
+    craycc-cc.
 
     Cray has two different compilers. Older ones have as version number:
         Cray C : Version 8.7.0  Tue Jul 23, 2024  07:39:46
@@ -545,7 +545,7 @@ class Craycc(CCompiler):
 class Crayftn(FortranCompiler):
     '''Class for the native Cray Fortran compiler. Since ftn is actually a
     compiler wrapper, follow the naming scheme of Cray compiler wrapper
-    and call it crayftn-cray.
+    and call it crayftn-ftn.
 
     :param name: name of this compiler.
     :param exec_name: name of the executable.
