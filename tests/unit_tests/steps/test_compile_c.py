@@ -100,7 +100,7 @@ class TestCompileC:
         compiler = config.tool_box[Category.C_COMPILER]
         # mock the run command to raise an exception
         with pytest.raises(RuntimeError):
-            with mock.patch.object(compiler, "run", side_effect=Exception):
+            with mock.patch.object(compiler, "run", side_effect=RuntimeError):
                 with mock.patch('fab.steps.compile_c.send_metric') as mock_send_metric:
                     with mock.patch('pathlib.Path.mkdir'):
                         compile_c(config=config)

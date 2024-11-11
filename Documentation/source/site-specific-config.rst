@@ -148,6 +148,18 @@ rsync, ar, ...).
     tool_box = ToolBox()
     default_c_compiler = tool_box.get_tool(Category.C_COMPILER)
 
+There is special handling for compilers and linkers: the build
+configuration stores the information if an MPI and/or OpenMP build
+is requested. So when a default tool is requested by the ToolBox
+from the ToolRepository (i.e. when the user has not added specific
+compilers or linkers), this information is taken into account, and
+only a compiler that will fulfil the requirements is returned. For
+example, if you have `gfortran` and `mpif90-gfortran` defined in this
+order in the ToolRepository, and request the default compiler for an
+MPI build, the `mpif90-gfortran` instance is returned, not `gfortran`.
+On the other hand, if no MPI is requested, an MPI-enabled compiler
+might be returned, which does not affect the final result, since
+an MPI compiler just adds include- and library-paths.
 
 TODO
 ====
