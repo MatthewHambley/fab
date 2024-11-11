@@ -12,9 +12,9 @@ from unittest import mock
 
 import pytest
 
-from fab.tools import (Category, CompilerWrapper, CrayCc, CrayFtn,
-                       Gcc, Gfortran, Icc, Ifort, Mpicc, Mpif90,
-                       ToolRepository)
+from fab.tools import (Category, CompilerWrapper, CrayCcWrapper,
+                       CrayFtnWrapper, Gcc, Gfortran, Icc, Ifort,
+                       Mpicc, Mpif90, ToolRepository)
 
 
 def test_compiler_wrapper_compiler_getter():
@@ -351,9 +351,9 @@ def test_compiler_wrapper_mpi_ifort():
 
 def test_compiler_wrapper_cray_icc():
     '''Tests the Cray wrapper for icc.'''
-    craycc = CrayCc(Icc())
+    craycc = CrayCcWrapper(Icc())
     assert craycc.name == "craycc-icc"
-    assert str(craycc) == "CrayCc(icc)"
+    assert str(craycc) == "CrayCcWrapper(icc)"
     assert isinstance(craycc, CompilerWrapper)
     assert craycc.category == Category.C_COMPILER
     assert craycc.mpi
@@ -362,9 +362,9 @@ def test_compiler_wrapper_cray_icc():
 
 def test_compiler_wrapper_cray_ifort():
     '''Tests the Cray wrapper for ifort.'''
-    crayftn = CrayFtn(Ifort())
+    crayftn = CrayFtnWrapper(Ifort())
     assert crayftn.name == "crayftn-ifort"
-    assert str(crayftn) == "CrayFtn(ifort)"
+    assert str(crayftn) == "CrayFtnWrapper(ifort)"
     assert isinstance(crayftn, CompilerWrapper)
     assert crayftn.category == Category.FORTRAN_COMPILER
     assert crayftn.mpi
@@ -373,9 +373,9 @@ def test_compiler_wrapper_cray_ifort():
 
 def test_compiler_wrapper_cray_gcc():
     '''Tests the Cray wrapper for gcc.'''
-    craycc = CrayCc(Gcc())
+    craycc = CrayCcWrapper(Gcc())
     assert craycc.name == "craycc-gcc"
-    assert str(craycc) == "CrayCc(gcc)"
+    assert str(craycc) == "CrayCcWrapper(gcc)"
     assert isinstance(craycc, CompilerWrapper)
     assert craycc.category == Category.C_COMPILER
     assert craycc.mpi
@@ -384,9 +384,9 @@ def test_compiler_wrapper_cray_gcc():
 
 def test_compiler_wrapper_cray_gfortran():
     '''Tests the Cray wrapper for gfortran.'''
-    crayftn = CrayFtn(Gfortran())
+    crayftn = CrayFtnWrapper(Gfortran())
     assert crayftn.name == "crayftn-gfortran"
-    assert str(crayftn) == "CrayFtn(gfortran)"
+    assert str(crayftn) == "CrayFtnWrapper(gfortran)"
     assert isinstance(crayftn, CompilerWrapper)
     assert crayftn.category == Category.FORTRAN_COMPILER
     assert crayftn.mpi

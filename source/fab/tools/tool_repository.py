@@ -17,7 +17,8 @@ from typing import cast, Optional
 from fab.tools.tool import Tool
 from fab.tools.category import Category
 from fab.tools.compiler import Compiler
-from fab.tools.compiler_wrapper import CrayCc, CrayFtn, Mpif90, Mpicc
+from fab.tools.compiler_wrapper import (CrayCcWrapper, CrayFtnWrapper,
+                                        Mpif90, Mpicc)
 from fab.tools.linker import Linker
 from fab.tools.versioning import Fcm, Git, Subversion
 from fab.tools import (Ar, Cpp, CppFortran, Craycc, Crayftn,
@@ -76,9 +77,10 @@ class ToolRepository(dict):
         for fc in all_fc:
             mpif90 = Mpif90(fc)
             self.add_tool(mpif90)
-            # I assume cray has (besides cray) only support for gfortran/ifort
+            # I assume cray has (besides cray) only support for Intel and GNU
             if fc.name in ["gfortran", "ifort"]:
-                crayftn = CrayFtn(fc)
+                crayftn = CrayFtnWrapper(fc)
+                print("NEW NAME", crayftn, crayftn.name)
                 self.add_tool(crayftn)
 
         # Now create the potential mpicc and Cray cc wrapper
@@ -86,9 +88,9 @@ class ToolRepository(dict):
         for cc in all_cc:
             mpicc = Mpicc(cc)
             self.add_tool(mpicc)
-            # I assume cray has (besides cray) only support for gfortran/ifort
+            # I assume cray has (besides cray) only support for Intel and GNU
             if cc.name in ["gcc", "icc"]:
-                craycc = CrayCc(cc)
+                craycc = CrayCcWrapper(cc)
                 self.add_tool(craycc)
 
     def add_tool(self, tool: Tool):
