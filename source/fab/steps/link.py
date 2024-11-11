@@ -56,7 +56,8 @@ def link_exe(config, flags=None, source: Optional[ArtefactsGetter] = None):
         output from compiler steps, which typically is the expected behaviour.
 
     """
-    linker = config.tool_box.get_tool(Category.LINKER, config.mpi)
+    linker = config.tool_box.get_tool(Category.LINKER, mpi=config.mpi,
+                                      openmp=config.openmp)
     logger.info(f'Linker is {linker.name}')
 
     flags = flags or []

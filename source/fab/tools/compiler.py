@@ -36,7 +36,8 @@ class Compiler(CompilerSuiteTool):
     :param mpi: whether MPI is supported by this compiler or not.
     :param output_flag: the compilation flag to use to indicate the name
         of the output file
-    :param openmp_flag: the flag to use to enable OpenMP
+    :param openmp_flag: the flag to use to enable OpenMP. If no flag is
+        specified, it is assumed that the compiler does not support OpenMP.
     :param availability_option: a command line option for the tool to test
         if the tool is available on the current system. Defaults to
         `--version`.
@@ -65,6 +66,12 @@ class Compiler(CompilerSuiteTool):
     def mpi(self) -> bool:
         '''Returns whether this compiler supports MPI or not.'''
         return self._mpi
+
+    @property
+    def openmp(self) -> bool:
+        ''':returns: if the compiler supports openmp or not
+        '''
+        return self._openmp_flag != ""
 
     @property
     def openmp_flag(self) -> str:

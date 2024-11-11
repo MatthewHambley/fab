@@ -24,10 +24,11 @@ def test_tool_box_get_tool():
     '''Tests get_tool.'''
     tb = ToolBox()
     # No tool is defined, so the default Fortran compiler must be returned:
-    default_compiler = tb.get_tool(Category.FORTRAN_COMPILER, mpi=False)
+    default_compiler = tb.get_tool(Category.FORTRAN_COMPILER,
+                                   mpi=False, openmp=False)
     tr = ToolRepository()
     assert default_compiler is tr.get_default(Category.FORTRAN_COMPILER,
-                                              mpi=False)
+                                              mpi=False, openmp=False)
     # Check that dictionary-like access works as expected:
     assert tb[Category.FORTRAN_COMPILER] == default_compiler
 

@@ -34,7 +34,7 @@ def _generic_build_config(folder: Path, kwargs=None) -> BuildConfig:
     # Set the default Fortran compiler as linker (otherwise e.g. the
     # C compiler might be used in linking, requiring additional flags)
     tr = ToolRepository()
-    fc = tr.get_default(Category.FORTRAN_COMPILER, mpi=False)
+    fc = tr.get_default(Category.FORTRAN_COMPILER, mpi=False, openmp=False)
     # TODO: This assumes a mapping of compiler name to the corresponding
     # linker name (i.e. `linker-gfortran` or `linker-ifort`). Still, that's
     # better than hard-coding gnu here.

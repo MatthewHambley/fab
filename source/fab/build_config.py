@@ -42,8 +42,8 @@ class BuildConfig():
     """
     def __init__(self, project_label: str,
                  tool_box: ToolBox,
-                 mpi: bool,
-                 openmp: bool,
+                 mpi: bool = False,
+                 openmp: bool = False,
                  multiprocessing: bool = True,
                  n_procs: Optional[int] = None,
                  reuse_artefacts: bool = False,
@@ -56,9 +56,13 @@ class BuildConfig():
             created from this name, with spaces replaced by underscores.
         :param tool_box: The ToolBox with all tools to use in the build.
         :param mpi: whether the project uses MPI or not. This is used to
-            pick a default compiler (if not explicitly set in the ToolBox),
-            and controls PSyclone parameters.
-        :param openmp: whether the project should use OpenMP or not.
+            pick a default compiler (if none is explicitly set in the
+            ToolBox), and controls PSyclone parameters.
+        :param openmp: as with `mpi`, this controls whether the project is
+            using OpenMP or not. This is used to pick a default compiler
+            (if none is explicitly set in the ToolBox). The compiler-specific
+            flag to enable OpenMP will automatically be added when compiling
+            and linking.
         :param multiprocessing:
             An option to disable multiprocessing to aid debugging.
         :param n_procs:
@@ -85,7 +89,8 @@ class BuildConfig():
         self._openmp = openmp
         self.two_stage = two_stage
         self.verbose = verbose
-        compiler = tool_box.get_tool(Category.FORTRAN_COMPILER, mpi=mpi)
+        compiler = tool_box.get_tool(Category.FORTRAN_COMPILER, mpi=mpi,
+                                     openmp=openmp)
         project_label = Template(project_label).safe_substitute(
             compiler=compiler.name,
             two_stage=f'{int(two_stage)+1}stage')

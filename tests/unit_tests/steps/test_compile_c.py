@@ -27,7 +27,7 @@ def fixture_content(tmp_path, tool_box):
     analysed file and expected hash.'''
 
     config = BuildConfig('proj', tool_box, multiprocessing=False,
-                         mpi=False, openmp=False, fab_workspace=tmp_path)
+                         fab_workspace=tmp_path)
 
     analysed_file = AnalysedC(fpath=Path(f'{config.source_root}/foo.c'), file_hash=0)
     config._artefact_store[ArtefactSet.BUILD_TREES] = \
@@ -98,7 +98,7 @@ class TestCompileC:
         compiler = config.tool_box[Category.C_COMPILER]
         # mock the run command to raise an exception
         with pytest.raises(RuntimeError):
-            with mock.patch.object(compiler, "run", side_effect=Exception):
+            with mock.patch.object(compiler, "run", side_effect=RuntimeError):
                 with mock.patch('fab.steps.compile_c.send_metric') as mock_send_metric:
                     with mock.patch('pathlib.Path.mkdir'):
                         compile_c(config=config)
