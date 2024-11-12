@@ -219,7 +219,6 @@ applied to the wrapper as well:
     assert my_mpicc.flags == ["-a", "-b"]
 
 
-
 TODO
 ====
 At this stage compiler flags are still set in the corresponding Fab
