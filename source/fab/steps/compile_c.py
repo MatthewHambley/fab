@@ -81,7 +81,8 @@ def compile_c(config, common_flags: Optional[List[str]] = None,
         # No need to look for compiler etc if there is nothing to do
         return
 
-    compiler = config.tool_box.get_tool(Category.C_COMPILER, config.mpi)
+    compiler = config.tool_box.get_tool(Category.C_COMPILER, mpi=config.mpi,
+                                        openmp=config.openmp)
     logger.info(f'C compiler is {compiler}')
 
     mp_payload = MpCommonArgs(config=config, flags=flags)
@@ -147,7 +148,7 @@ def _compile_file(arg: Tuple[AnalysedC, MpCommonArgs]):
                 compiler.compile_file(analysed_file.fpath, obj_file_prebuild,
                                       openmp=config.openmp,
                                       add_flags=flags)
-            except Exception as err:
+            except RuntimeError as err:
                 return FabException(f"error compiling "
                                     f"{analysed_file.fpath}:\n{err}")
 
