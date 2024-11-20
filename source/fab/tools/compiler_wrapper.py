@@ -47,12 +47,20 @@ class CompilerWrapper(Compiler):
         return f"{type(self).__name__}({self._compiler.name})"
 
     def get_version(self) -> Tuple[int, ...]:
-        """
+        """Determines the version of the compiler. The implementation in the
+        compiler wrapper additionally ensures that the wrapper compiler and
+        compiler wrapper report both the same version. This verifies that the
+        user's build environment is as expected. For example, this will check
+        if mpif90 from mpif90-ifort does indeed invoke ifort (and not e.g.
+        gfortran).
+
         :returns: a tuple of at least 2 integers, representing the version
             e.g. (6, 10, 1) for version '6.10.1'.
 
         :raises RuntimeError: if the compiler was not found, or if it returned
             an unrecognised output from the version command.
+        :raises RuntimeError: if the compiler wrapper and wrapped compiler
+            have different version numbers.
         """
 
         if self._version is not None:
