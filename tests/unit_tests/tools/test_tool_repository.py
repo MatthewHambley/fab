@@ -137,7 +137,7 @@ def test_tool_repository_get_default_error_missing_openmp_compiler():
     ToolRepository.'''
     tr = ToolRepository()
     fc = FortranCompiler("gfortran", "gfortran", "gnu", openmp_flag=None,
-                         module_folder_flag="-J")
+                         module_folder_flag="-J", version_regex=None)
 
     with mock.patch.dict(tr, {Category.FORTRAN_COMPILER: [fc]}), \
             pytest.raises(RuntimeError) as err:

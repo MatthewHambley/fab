@@ -47,26 +47,27 @@ def test_compiler():
 def test_compiler_openmp():
     '''Test that the openmp flag is correctly reflected in the test if
     a compiler supports OpenMP or not.'''
-    cc = CCompiler("gcc", "gcc", "gnu", openmp_flag="-fopenmp")
+    cc = CCompiler("gcc", "gcc", "gnu", openmp_flag="-fopenmp",
+                   version_regex=None)
     assert cc.openmp_flag == "-fopenmp"
     assert cc.openmp
-    cc = CCompiler("gcc", "gcc", "gnu", openmp_flag=None)
+    cc = CCompiler("gcc", "gcc", "gnu", openmp_flag=None, version_regex=None)
     assert cc.openmp_flag == ""
     assert not cc.openmp
-    cc = CCompiler("gcc", "gcc", "gnu")
+    cc = CCompiler("gcc", "gcc", "gnu", version_regex=None)
     assert cc.openmp_flag == ""
     assert not cc.openmp
 
     fc = FortranCompiler("gfortran", "gfortran", "gnu", openmp_flag="-fopenmp",
-                         module_folder_flag="-J")
+                         module_folder_flag="-J", version_regex=None)
     assert fc.openmp_flag == "-fopenmp"
     assert fc.openmp
     fc = FortranCompiler("gfortran", "gfortran", "gnu", openmp_flag=None,
-                         module_folder_flag="-J")
+                         module_folder_flag="-J", version_regex=None)
     assert fc.openmp_flag == ""
     assert not fc.openmp
     fc = FortranCompiler("gfortran", "gfortran", "gnu",
-                         module_folder_flag="-J")
+                         module_folder_flag="-J", version_regex=None)
     assert fc.openmp_flag == ""
     assert not fc.openmp
 
