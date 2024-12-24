@@ -21,17 +21,17 @@ class Script(Tool):
     :name: the path to the script to run.
     '''
     def __init__(self, name: Path):
-        super().__init__(name=name.name, exec_name=name,
+        super().__init__(name=name.name, executable=name,
                          category=Category.MISC)
 
     def check_available(self):
         '''Since there typically is no command line option we could test for
         the tolls here, we use `which` to determine if a tool is available.
         '''
-        out = shutil.which(self.exec_name)
+        out = shutil.which(self.executable)
         if out:
             return True
-        print(f"Tool '{self.name}' (f{self.exec_name}) cannot be executed.")
+        print(f"Tool '{self.name}' (f{self.executable}) cannot be executed.")
         return False
 
 

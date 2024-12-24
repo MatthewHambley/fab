@@ -6,21 +6,23 @@
 
 '''Tests the compiler implementation.
 '''
-
+from collections import deque
 import os
 from pathlib import Path, PosixPath
 from textwrap import dedent
 from unittest import mock
 
-import pytest
+from pytest import mark, raises, warns
 
-from fab.tools import (Category, CCompiler, Compiler, FortranCompiler,
-                       Gcc, Gfortran, Icc, Ifort)
+from fab.category import Category
+from fab.tools.compiler import Compiler, CCompiler, FortranCompiler, Gcc, Gfortran, Icc, Ifort
 
 
-def test_compiler():
+def test_constructor_gcc():
     '''Test the compiler constructor.'''
-    cc = Compiler("gcc", "gcc", "gnu", category=Category.C_COMPILER, openmp_flag="-fopenmp")
+    cc = Compiler("gcc", "gcc", "gnu",
+                  category=Category.C_COMPILER,
+                  openmp_flag="-fopenmp")
     assert cc.category == Category.C_COMPILER
     assert cc._compile_flag == "-c"
     assert cc._output_flag == "-o"
@@ -29,25 +31,24 @@ def test_compiler():
     assert cc.suite == "gnu"
     assert not cc.mpi
     assert cc.openmp_flag == "-fopenmp"
-    with pytest.raises(NotImplementedError) as err:
+    with raises(NotImplementedError) as err:
         cc.parse_version_output(Category.FORTRAN_COMPILER, "NOT NEEDED")
-    assert ("The method `parse_version_output` must be provided using a mixin."
-            in str(err.value))
+    assert str(err.value) == "The method `parse_version_output` must be provided using a mixin."
 
-    fc = FortranCompiler("gfortran", "gfortran", "gnu", openmp_flag="-fopenmp",
+def constructor_gfortran():
+    fc = FortranCompiler("gfortran", "gfortran", "gnu",
+                         openmp_flag="-fopenmp",
                          module_folder_flag="-J")
     assert fc._compile_flag == "-c"
     assert fc._output_flag == "-o"
     assert fc.category == Category.FORTRAN_COMPILER
     assert fc.suite == "gnu"
-    # pylint: disable-next=use-implicit-booleaness-not-comparison
     assert fc.flags == []
     assert not fc.mpi
     assert fc.openmp_flag == "-fopenmp"
-    with pytest.raises(NotImplementedError) as err:
+    with raises(NotImplementedError) as err:
         fc.parse_version_output(Category.FORTRAN_COMPILER, "NOT NEEDED")
-    assert ("The method `parse_version_output` must be provided using a mixin."
-            in str(err.value))
+    assert str(err.value) == "The method `parse_version_output` must be provided using a mixin."
 
 
 def test_compiler_openmp():
@@ -77,63 +78,69 @@ def test_compiler_openmp():
     assert not fc.openmp
 
 
-def test_compiler_check_available():
+def test_compiler_check_available(fake_process):
     '''Check if check_available works as expected. The compiler class uses
     internally get_version to test if a compiler works or not. Check the
     compiler is available when it has a valid version.
     '''
+    fake_process.register(['gcc', '--version'], stdout='gcc (bar) 1.2.3')
     cc = Gcc()
-    with mock.patch.object(cc, "get_version", returncode=(1, 2, 3)):
-        assert cc.check_available()
+    assert cc.is_available is True
 
 
-def test_compiler_check_available_runtime_error():
+def test_compiler_check_available_runtime_error(fake_process):
     ''' Check the compiler is not available when get_version raises an error.
     '''
+    fake_process.register(['gcc', '--version'], returncode=5)
     cc = Gcc()
-    with mock.patch.object(cc, "get_version", side_effect=RuntimeError("")):
-        assert not cc.check_available()
+    assert cc.is_available is False
 
 
-def test_compiler_hash():
+def test_compiler_hash(fake_process):
     '''Test the hash functionality.'''
+    fake_process.register(['gcc', '--version'], stdout="gcc (foo) 5.6.7")
     cc = Gcc()
-    with mock.patch.object(cc, "_version", (5, 6, 7)):
-        hash1 = cc.get_hash()
-        assert hash1 == 2768517656
+    hash1 = cc.get_hash()
+    assert hash1 == 2768517656
+
+    # Must reproduce across isntances
+    fake_process.register(['gcc', '--version'], stdout="gcc (foo) 5.6.7")
+    cc15 = Gcc()
+    assert cc15.get_hash() == hash1
 
     # A change in the version number must change the hash:
-    with mock.patch.object(cc, "_version", (8, 9)):
-        hash2 = cc.get_hash()
-        assert hash2 != hash1
+    fake_process.register(['gcc', '--version'], stdout="gcc (foo) 8.9")
+    cc2 = Gcc()
+    hash2 = cc2.get_hash()
+    assert hash2 != hash1
 
-        # A change in the name must change the hash, again:
-        cc._name = "new_name"
-        hash3 = cc.get_hash()
-        assert hash3 not in (hash1, hash2)
+    # A change in the name must change the hash, again:
+    fake_process.register(['gcc', '--version'], stdout="gcc (foo) 8.9")
+    cc3 = Gcc("beef")
+    hash3 = cc3.get_hash()
+    assert hash3 not in (hash1, hash2)
 
 
-def test_compiler_hash_compiler_error():
-    '''Test the hash functionality when version info is missing.'''
+def test_compiler_hash_compiler_error(fake_process):
+    """
+    Test the hash functionality when version info is missing.
+    """
+    fake_process.register(['gcc', '--version'], returncode=4)
     cc = Gcc()
-
     # raise an error when trying to get compiler version
-    with mock.patch.object(cc, 'run', side_effect=RuntimeError()):
-        with pytest.raises(RuntimeError) as err:
-            cc.get_hash()
-        assert "Error asking for version of compiler" in str(err.value)
+    with raises(RuntimeError) as err:
+        cc.get_hash()
+    assert str(err.value) == "Error asking for version of compiler 'gcc'"
 
 
-def test_compiler_hash_invalid_version():
+def test_compiler_hash_invalid_version(fake_process):
     '''Test the hash functionality when version info is missing.'''
+    fake_process.register(['gcc', '--version'], stdout='foo v1')
     cc = Gcc()
-
     # returns an invalid compiler version string
-    with mock.patch.object(cc, "run", mock.Mock(return_value='foo v1')):
-        with pytest.raises(RuntimeError) as err:
-            cc.get_hash()
-        assert ("Unexpected version output format for compiler 'gcc'"
-                in str(err.value))
+    with raises(RuntimeError) as err:
+        cc.get_hash()
+    assert str(err.value) == "Unexpected version output format for compiler 'gcc': foo v1"
 
 
 def test_compiler_with_env_fflags():
@@ -209,25 +216,23 @@ def test_compiler_module_output():
                                                      'a.f90', '-o', 'a.o'])
 
 
-def test_compiler_with_add_args():
+def test_compiler_with_add_args(mock_process):
     '''Tests that additional arguments are handled as expected.'''
     fc = FortranCompiler("gfortran", "gfortran", suite="gnu",
                          openmp_flag="-fopenmp",
                          module_folder_flag="-J")
     fc.set_module_output_path("/module_out")
     assert fc._module_output_path == "/module_out"
-    fc.run = mock.MagicMock()
-    with pytest.warns(UserWarning, match="Removing managed flag"):
+    with warns(UserWarning, match="Removing managed flag"):
         fc.compile_file(Path("a.f90"), "a.o", add_flags=["-J/b", "-O3"],
                         openmp=False, syntax_only=True)
     # Notice that "-J/b" has been removed
-    fc.run.assert_called_with(cwd=PosixPath('.'),
-                              additional_parameters=['-c', "-O3",
-                                                     '-J', '/module_out',
-                                                     'a.f90', '-o', 'a.o'])
-    with pytest.warns(UserWarning,
-                      match="explicitly provided. OpenMP should be enabled in "
-                            "the BuildConfiguration"):
+    assert mock_process.calls == deque(
+        [['gfortran', '-c', "-O3", '-J', '/module_out', 'a.f90', '-o', 'a.o']]
+    )
+    with warns(UserWarning,
+               match="explicitly provided. OpenMP should be enabled in "
+                     "the BuildConfiguration"):
         fc.compile_file(Path("a.f90"), "a.o",
                         add_flags=["-fopenmp", "-O3"],
                         openmp=True, syntax_only=True)
@@ -243,7 +248,7 @@ def test_get_version_string():
         assert c.get_version_string() == "6.1.0"
 
 
-def test_get_version_1_part_version():
+def test_get_version_1_part_version(fake_process):
     '''
     Tests the get_version() method with an invalid format.
     If the version is just one integer, that is invalid and we must raise an
@@ -253,12 +258,11 @@ def test_get_version_1_part_version():
         Copyright (C) 2022 Foo Software Foundation, Inc.
     """)
     expected_error = "Unexpected version output format for compiler"
-
+    fake_process.register(['gfortran', '--version'], stdout=full_output)
     c = Gfortran()
-    with mock.patch.object(c, "run", mock.Mock(return_value=full_output)):
-        with pytest.raises(RuntimeError) as err:
-            c.get_version()
-        assert expected_error in str(err.value)
+    with raises(RuntimeError) as err:
+        c.get_version()
+    assert str(err.value).startswith(expected_error)
 
 
 def test_get_version_2_part_version():
@@ -297,11 +301,11 @@ def test_get_version_4_part_version():
         assert c.get_version() == (19, 0, 0, 117)
 
 
-@pytest.mark.parametrize("version", ["5.15f.2",
-                                     ".0.5.1",
-                                     "0.5.1.",
-                                     "0.5..1"])
-def test_get_version_non_int_version_format(version):
+@mark.parametrize("version", ["5.15f.2",
+                              ".0.5.1",
+                              "0.5.1.",
+                              "0.5..1"])
+def test_get_version_non_int_version_format(version, fake_process):
     '''
     Tests the get_version() method with an invalid format.
     If the version contains non-number characters, we must raise an error.
@@ -313,15 +317,14 @@ def test_get_version_non_int_version_format(version):
         Copyright (C) 2022 Foo Software Foundation, Inc.
     """)
     expected_error = "Unexpected version output format for compiler"
-
+    fake_process.register(['gfortran', '--version'], stdout=full_output)
     c = Gfortran()
-    with mock.patch.object(c, "run", mock.Mock(return_value=full_output)):
-        with pytest.raises(RuntimeError) as err:
-            c.get_version()
-        assert expected_error in str(err.value)
+    with raises(RuntimeError) as err:
+        c.get_version()
+    assert str(err.value).startswith(expected_error)
 
 
-def test_get_version_unknown_version_format():
+def test_get_version_unknown_version_format(fake_process):
     '''
     Tests the get_version() method with an invalid format.
     If the version is in an unknown format, we must raise an error.
@@ -330,34 +333,37 @@ def test_get_version_unknown_version_format():
     full_output = dedent("""
         Foo Fortran version 175
     """)
-    expected_error = "Unexpected version output format for compiler"
-
+    expected_error = "Unexpected version output format for compiler 'GNU Fortran': \nFoo Fortran version 175\n"
+    fake_process.register(['gfortran', '--version'], stdout=full_output)
     c = Gfortran()
-    with mock.patch.object(c, "run", mock.Mock(return_value=full_output)):
-        with pytest.raises(RuntimeError) as err:
-            c.get_version()
-        assert expected_error in str(err.value)
-
-
-def test_get_version_command_failure():
-    '''If the version command fails, we must raise an error.'''
-    c = Gfortran(exec_name="does_not_exist")
-    with pytest.raises(RuntimeError) as err:
+    with raises(RuntimeError) as err:
         c.get_version()
-    assert "Error asking for version of compiler" in str(err.value)
+    assert str(err.value) == expected_error
 
 
-def test_get_version_unknown_command_response():
+def test_get_version_command_failure(fake_process):
+    '''If the version command fails, we must raise an error.'''
+
+    def missing_exe(command):
+        raise FileNotFoundError()
+
+    fake_process.register(['does_not_exist', '--version'], callback=missing_exe)
+    c = Gfortran(executable="does_not_exist")
+    with raises(RuntimeError) as err:
+        c.get_version()
+    assert str(err.value) == "Error asking for version of compiler 'gfortran'"
+
+
+def test_get_version_unknown_command_response(fake_process):
     '''If the full version output is in an unknown format,
     we must raise an error.'''
     full_output = 'GNU Fortran  1.2.3'
-    expected_error = "Unexpected version output format for compiler"
-
+    expected_error = "Unexpected version output format for compiler 'GNU Fortran': GNU Fortran  1.2.3"
+    fake_process.register(['gfortran', '--version'], stdout=full_output)
     c = Gfortran()
-    with mock.patch.object(c, "run", mock.Mock(return_value=full_output)):
-        with pytest.raises(RuntimeError) as err:
-            c.get_version()
-        assert expected_error in str(err.value)
+    with raises(RuntimeError) as err:
+        c.get_version()
+    assert str(err.value) == expected_error
 
 
 def test_get_version_good_result_is_cached():
@@ -377,20 +383,25 @@ def test_get_version_good_result_is_cached():
         assert not c.run.called
 
 
-def test_get_version_bad_result_is_not_cached():
+def test_get_version_bad_result_is_not_cached(fake_process):
     '''Checks that the compiler can be re-run after failing to get the version.
     '''
     # Set up the compiler to fail the first time
+    fake_process.register(['gfortran', '--version'], returncode=3)
     c = Gfortran()
-    with mock.patch.object(c, 'run', side_effect=RuntimeError()):
-        with pytest.raises(RuntimeError):
-            c.get_version()
+    with raises(RuntimeError):
+        c.get_version()
+    assert fake_process.calls == deque([['gfortran', '--version']])
 
     # Now let the run method run successfully and we should get the version.
-    valid_output = "GNU Fortran (gcc) 6.1.0"
-    with mock.patch.object(c, 'run', mock.Mock(return_value=valid_output)):
-        assert c.get_version() == (6, 1, 0)
-        assert c.run.called
+    fake_process.register(['gfortran', '--version'], stdout="GNU Fortran (gcc) 6.1.0")
+    assert c.get_version() == (6, 1, 0)
+    assert fake_process.calls == deque(
+        [
+            ['gfortran', '--version'],
+            ['gfortran', '--version']
+        ]
+    )
 
 
 # ============================================================================
@@ -414,18 +425,18 @@ def test_gcc_get_version():
         assert gcc.get_version() == (8, 5, 0)
 
 
-def test_gcc_get_version_with_icc_string():
+def test_gcc_get_version_with_icc_string(fake_process):
     '''Tests the gcc class with an icc version output.'''
-    gcc = Gcc()
     full_output = dedent("""
         icc (ICC) 2021.10.0 20230609
         Copyright (C) 1985-2023 Intel Corporation.  All rights reserved.
 
     """)
-    with mock.patch.object(gcc, "run", mock.Mock(return_value=full_output)):
-        with pytest.raises(RuntimeError) as err:
-            gcc.get_version()
-        assert "Unexpected version output format for compiler" in str(err.value)
+    fake_process.register(['gcc', '--version'], stdout=full_output)
+    gcc = Gcc()
+    with raises(RuntimeError) as err:
+        gcc.get_version()
+    assert str(err.value).startswith("Unexpected version output format for compiler")
 
 
 # ============================================================================
@@ -516,18 +527,18 @@ def test_gfortran_get_version_12():
         assert gfortran.get_version() == (12, 1, 0)
 
 
-def test_gfortran_get_version_with_ifort_string():
+def test_gfortran_get_version_with_ifort_string(fake_process):
     '''Tests the gfortran class with an ifort version output.'''
     full_output = dedent("""
         ifort (IFORT) 14.0.3 20140422
         Copyright (C) 1985-2014 Intel Corporation.  All rights reserved.
 
     """)
+    fake_process.register(['gfortran', '--version'], stdout=full_output)
     gfortran = Gfortran()
-    with mock.patch.object(gfortran, "run", mock.Mock(return_value=full_output)):
-        with pytest.raises(RuntimeError) as err:
-            gfortran.get_version()
-        assert "Unexpected version output format for compiler" in str(err.value)
+    with raises(RuntimeError) as err:
+        gfortran.get_version()
+    assert str(err.value).startswith("Unexpected version output format for compiler")
 
 
 # ============================================================================
@@ -552,17 +563,17 @@ def test_icc_get_version():
         assert icc.get_version() == (2021, 10, 0)
 
 
-def test_icc_get_version_with_gcc_string():
+def test_icc_get_version_with_gcc_string(fake_process):
     '''Tests the icc class with a GCC version output.'''
     full_output = dedent("""
         gcc (GCC) 8.5.0 20210514 (Red Hat 8.5.0-20)
         Copyright (C) 2018 Free Software Foundation, Inc.
     """)
+    fake_process.register(['icc', '--version'], stdout=full_output)
     icc = Icc()
-    with mock.patch.object(icc, "run", mock.Mock(return_value=full_output)):
-        with pytest.raises(RuntimeError) as err:
-            icc.get_version()
-        assert "Unexpected version output format for compiler" in str(err.value)
+    with raises(RuntimeError) as err:
+        icc.get_version()
+    assert str(err.value).startswith("Unexpected version output format for compiler")
 
 
 # ============================================================================
@@ -623,25 +634,25 @@ def test_ifort_get_version_19():
         assert ifort.get_version() == (19, 0, 0, 117)
 
 
-def test_ifort_get_version_with_icc_string():
+def test_ifort_get_version_with_icc_string(fake_process):
     '''Tests the ifort class with an icc version output.'''
     full_output = dedent("""
         icc (ICC) 2021.10.0 20230609
         Copyright (C) 1985-2023 Intel Corporation.  All rights reserved.
 
     """)
+    fake_process.register(['ifort', '--version'], stdout=full_output)
     ifort = Ifort()
-    with mock.patch.object(ifort, "run", mock.Mock(return_value=full_output)):
-        with pytest.raises(RuntimeError) as err:
-            ifort.get_version()
-        assert "Unexpected version output format for compiler" in str(err.value)
+    with raises(RuntimeError) as err:
+        ifort.get_version()
+    assert str(err.value).startswith("Unexpected version output format for compiler")
 
 
-@pytest.mark.parametrize("version", ["5.15f.2",
-                                     ".0.5.1",
-                                     "0.5.1.",
-                                     "0.5..1"])
-def test_ifort_get_version_invalid_version(version):
+@mark.parametrize("version", ["5.15f.2",
+                              ".0.5.1",
+                              "0.5.1.",
+                              "0.5..1"])
+def test_ifort_get_version_invalid_version(version, fake_process):
     '''Tests the ifort class with an ifort version string that contains an
     invalid version number.'''
     full_output = dedent(f"""
@@ -649,8 +660,8 @@ def test_ifort_get_version_invalid_version(version):
         Copyright (C) 1985-2014 Intel Corporation.  All rights reserved.
 
     """)
+    fake_process.register(['ifort', '--version'], stdout=full_output)
     ifort = Ifort()
-    with mock.patch.object(ifort, "run", mock.Mock(return_value=full_output)):
-        with pytest.raises(RuntimeError) as err:
-            ifort.get_version()
-        assert "Unexpected version output format for compiler" in str(err.value)
+    with raises(RuntimeError) as err:
+        ifort.get_version()
+    assert str(err.value).startswith("Unexpected version output format for compiler 'ifort'")

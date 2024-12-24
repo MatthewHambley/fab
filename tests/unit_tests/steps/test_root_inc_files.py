@@ -6,7 +6,7 @@ import pytest
 from fab.artefacts import ArtefactSet
 from fab.build_config import BuildConfig
 from fab.steps.root_inc_files import root_inc_files
-from fab.tools import ToolBox
+from fab.tool_box import ToolBox
 
 
 class TestRootIncFiles:

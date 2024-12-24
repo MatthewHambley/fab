@@ -3,80 +3,71 @@
 # For further details please refer to the file COPYRIGHT
 # which you should have received as part of this distribution
 ##############################################################################
-
-'''This file contains the ToolRepository class.
-'''
-
-# We can't declare _singleton and __new__() using ToolRepository, but
-# it is allowed if we use this import:
+"""
+Collection of all tools known to Fab.
+"""
 from __future__ import annotations
 
-import logging
-from typing import cast, Optional
+from typing import cast, Optional, Type
 
-from fab.tools.tool import Tool
-from fab.tools.category import Category
+from fab.tools import Tool
+from fab.category import Category
 from fab.tools.compiler import Compiler
 from fab.tools.linker import Linker
 from fab.tools.versioning import Fcm, Git, Subversion
 
 
 class ToolRepository(dict):
-    '''This class implements the tool repository. It stores a list of
-    tools for various categories. For each compiler, it will automatically
-    create a tool called "linker-{compiler-name}" which can be used for
-    linking with the specified compiler.
-    '''
+    """
+    Stores a list of tools for various categories.
 
-    _singleton: None | ToolRepository = None
+    For each compiler, it will automatically create a tool called
+    "linker-{compiler-name}" which can be used for linking with the specified
+    compiler.
+    """
+    def __new__(cls: Type[ToolRepository]) -> ToolRepository:
+        """
+        Returns a singleton object of this class.
 
-    def __new__(cls) -> ToolRepository:
-        '''Singleton access. Changes the value of _singleton so that the
-        constructor can verify that it is indeed called from here.
-        '''
-        if not cls._singleton:
-            cls._singleton = super().__new__(cls)
+        Construction happens here and there is no constructor.
+        """
+        if hasattr(cls, '_singleton'):
+            return cls._singleton
 
-        return cls._singleton
-
-    def __init__(self):
-        # Note that in this singleton pattern the constructor is called each
-        # time the instance is requested (since we overwrite __new__). But
-        # we only want to initialise the instance once, so let the constructor
-        # not do anything if the singleton already exists:
-        # pylint: disable=too-many-locals
-        if ToolRepository._singleton:
-            return
-
-        self._logger = logging.getLogger(__name__)
-        super().__init__()
+        singleton = super().__new__(cls)
+        cls._singleton = singleton
 
         # Create the list that stores all tools for each category:
         for category in Category:
-            self[category] = []
+            singleton[category] = []
 
         # Add the FAB default tools:
         # TODO: sort the defaults so that they actually work (since not all
         # tools FAB knows about are available). For now, disable Fpp:
         # We get circular dependencies if imported at top of the file:
         # pylint: disable=import-outside-toplevel
-        from fab.tools import (Ar, Cpp, CppFortran, Gcc, Gfortran,
-                               Icc, Ifort, Psyclone, Rsync)
+        from fab.tools.ar import Ar
+        from fab.tools.compiler import Gcc, Gfortran, Icc, Ifort
+        from fab.tools.preprocessor import Cpp, CppFortran
+        from fab.tools.psyclone import Psyclone
+        from fab.tools.rsync import Rsync
 
         for cls in [Gcc, Icc, Gfortran, Ifort, Cpp, CppFortran,
                     Fcm, Git, Subversion, Ar, Psyclone, Rsync]:
-            self.add_tool(cls())
+            singleton.add_tool(cls())
 
         from fab.tools.compiler_wrapper import Mpif90, Mpicc
-        all_fc = self[Category.FORTRAN_COMPILER][:]
+        all_fc = singleton[Category.FORTRAN_COMPILER][:]
         for fc in all_fc:
             mpif90 = Mpif90(fc)
-            self.add_tool(mpif90)
+            singleton.add_tool(mpif90)
 
-        all_cc = self[Category.C_COMPILER][:]
+        all_cc = singleton[Category.C_COMPILER][:]
         for cc in all_cc:
             mpicc = Mpicc(cc)
-            self.add_tool(mpicc)
+            singleton.add_tool(mpicc)
+
+        return singleton
 
     def add_tool(self, tool: Tool):
         '''Creates an instance of the specified class and adds it

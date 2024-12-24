@@ -6,6 +6,7 @@
 """
 Tests version control interfaces.
 """
+from collections import deque
 from filecmp import cmpfiles, dircmp
 from pathlib import Path
 from shutil import which
@@ -15,8 +16,10 @@ from time import sleep
 from typing import List, Tuple
 
 from pytest import TempPathFactory, fixture, mark, raises
+from pytest_subprocess.fake_process import FakeProcess
 
-from fab.tools import Category, Fcm, Git, Subversion
+from fab.category import Category
+from fab.tools.versioning import Fcm, Git, Subversion
 
 
 class TestGit:
@@ -29,164 +32,172 @@ class TestGit:
         assert git.category == Category.GIT
         assert git.flags == []
 
-    def test_git_check_available(self):
-        '''Check if check_available works as expected.
-        '''
+    def test_git_available(self, mock_process: FakeProcess):
+        """
+        Tests Git availability.
+
+        This test mocks the subprocess for speed and portability. Validation
+        when actually shelling out to a subprocess happens in system testing.
+        """
         git = Git()
-        with mock.patch.object(git, "run", return_value=0):
-            assert git.check_available()
+        assert git.is_available is True
+        assert mock_process.calls == deque([['git', 'help']])
 
-        # Now test if run raises an error
-        with mock.patch.object(git, "run", side_effect=RuntimeError("")):
-            assert not git.check_available()
+    def test_git_unavailable(self, fake_process: FakeProcess):
+        """
+        Tests Git unavailability.
 
-    def test_git_current_commit(self):
-        '''Check current_commit functionality. The tests here will actually
-        mock the git results, so they will work even if git is not installed.
-        The system_tests will test an actual check out etc. '''
-
+        This test mocks the subprocess for speed and portability. Validation
+        when actually shelling out to a subprocess happens in system testing.
+        """
         git = Git()
-        # Note that only the first line will be returned, and stdout of the
-        # subprocess run method must be encoded (i.e. decode is called later)
-        mock_result = mock.Mock(returncode=0, stdout="abc\ndef".encode())
-        with mock.patch('fab.tools.tool.subprocess.run',
-                        return_value=mock_result) as tool_run:
-            assert "abc" == git.current_commit()
+        fake_process.register(['git', 'help'], returncode=1)
+        assert git.is_available is False
+        assert fake_process.calls == deque([['git', 'help']])
 
-        tool_run.assert_called_once_with(
-            ['git', 'log', '--oneline', '-n', '1'], capture_output=True,
-            env=None, cwd='.', check=False)
+    def test_git_current_commit(self, fake_process: FakeProcess):
+        """
+        Tests discover revision of the current working copy at CSD.
 
-        # Test if we specify a path
-        mock_result = mock.Mock(returncode=0, stdout="abc\ndef".encode())
-        with mock.patch('fab.tools.tool.subprocess.run',
-                        return_value=mock_result) as tool_run:
-            assert "abc" == git.current_commit("/not-exist")
-
-        tool_run.assert_called_once_with(
-            ['git', 'log', '--oneline', '-n', '1'], capture_output=True,
-            env=None, cwd="/not-exist", check=False)
-
-    def test_git_init(self):
-        '''Check init functionality. The tests here will actually
-        mock the git results, so they will work even if git is not installed.
-        The system_tests will test an actual check out etc. '''
-
+        This test mocks the subprocess for speed and portability. Validation
+        when actually shelling out to a subprocess happens in system testing.
+        """
         git = Git()
-        # Note that only the first line will be returned
-        mock_result = mock.Mock(returncode=0)
-        with mock.patch('fab.tools.tool.subprocess.run',
-                        return_value=mock_result) as tool_run:
-            git.init("/src")
-        tool_run.assert_called_once_with(
-            ['git', 'init', '.'], capture_output=True, env=None,
-            cwd='/src', check=False)
+        fake_process.register(['git', 'log', '--oneline', '-n', '1'], stdout='abc\ndef')
+        assert "abc" == git.current_commit()
+        assert fake_process.calls \
+               == deque([['git', 'log', '--oneline', '-n', '1']])
+        # Todo: Need to check that cwd was correctly set to something. See
+        #       https://github.com/aklajnert/pytest-subprocess/issues/177
 
-    def test_git_clean(self):
-        '''Check clean functionality. The tests here will actually
-        mock the git results, so they will work even if git is not installed.
-        The system_tests will test an actual check out etc. '''
+    def test_git_current_commit_path(self, fake_process: FakeProcess):
+        """
+        Tests discover revision of the current working copy at path.
 
+        This test mocks the subprocess for speed and portability. Validation
+        when actually shelling out to a subprocess happens in system testing.
+        """
         git = Git()
-        # Note that only the first line will be returned
-        mock_result = mock.Mock(returncode=0)
-        with mock.patch('fab.tools.tool.subprocess.run',
-                        return_value=mock_result) as tool_run:
-            git.clean('/src')
-        tool_run.assert_called_once_with(
-            ['git', 'clean', '-f'], capture_output=True, env=None,
-            cwd='/src', check=False)
+        fake_process.register(['git', 'log', '--oneline', '-n', '1'], stdout='abc\ndef')
+        assert "abc" == git.current_commit("/not-exist")
+        assert fake_process.calls \
+               == deque([['git', 'log', '--oneline', '-n', '1']])
+        # Todo: Need to check that cwd was correctly set to /not-exist. See
+        #       https://github.com/aklajnert/pytest-subprocess/issues/177
 
-    def test_git_fetch(self):
-        '''Check getch functionality. The tests here will actually
-        mock the git results, so they will work even if git is not installed.
-        The system_tests will test an actual check out etc. '''
+    def test_git_init(self, mock_process: FakeProcess):
+        """
+        Tests Git initialisation functionality.
 
+        This test mocks the subprocess for speed and portability. Validation
+        when actually shelling out to a subprocess happens in system testing.
+        """
         git = Git()
-        # Note that only the first line will be returned
-        mock_result = mock.Mock(returncode=0)
-        with mock.patch('fab.tools.tool.subprocess.run',
-                        return_value=mock_result) as tool_run:
-            git.fetch("/src", "/dst", revision="revision")
-        tool_run.assert_called_once_with(
-            ['git', 'fetch', "/src", "revision"], capture_output=False,
-            env=None, cwd='/dst', check=False)
+        git.init("/src")
+        assert mock_process.calls == deque([['git', 'init', '.']])
+        # Todo: Need to check that cwd was correctly set to /src. See
+        #       https://github.com/aklajnert/pytest-subprocess/issues/177
 
-        with mock.patch.object(git, "run",
-                               side_effect=RuntimeError("ERR")) as run:
-            with raises(RuntimeError) as err:
-                git.fetch("/src", "/dst", revision="revision")
-            assert "ERR" in str(err.value)
-        run.assert_called_once_with(['fetch', "/src", "revision"], cwd="/dst",
-                                    capture_output=False)
+    def test_git_clean(self, mock_process: FakeProcess):
+        """
+        Tests Git clean functionality.
 
-    def test_git_checkout(self):
-        '''Check checkout functionality. The tests here will actually
-        mock the git results, so they will work even if git is not installed.
-        The system_tests will test an actual check out etc. '''
-
+        This test mocks the subprocess for speed and portability. Validation
+        when actually shelling out to a subprocess happens in system testing.
+        """
         git = Git()
-        # Note that only the first line will be returned
+        git.clean('/src')
+        assert mock_process.calls == deque([['git', 'clean', '-f']])
+        # Todo: Need to check that cwd was correctly set to /src. See
+        #       https://github.com/aklajnert/pytest-subprocess/issues/177
 
-        mock_result = mock.Mock(returncode=0)
-        with mock.patch('fab.tools.tool.subprocess.run',
-                        return_value=mock_result) as tool_run:
-            git.checkout("/src", "/dst", revision="revision")
-        tool_run.assert_any_call(['git', 'fetch', "/src", "revision"],
-                                 cwd='/dst', capture_output=False, env=None,
-                                 check=False)
-        tool_run.assert_called_with(['git', 'checkout', "FETCH_HEAD"],
-                                    cwd="/dst", capture_output=False,
-                                    env=None, check=False)
+    def test_git_fetch(self, mock_process: FakeProcess):
+        """
+        Tests Git fetch functionality.
 
-        with mock.patch.object(git, "run",
-                               side_effect=RuntimeError("ERR")) as run:
-            with raises(RuntimeError) as err:
-                git.checkout("/src", "/dst", revision="revision")
-            assert "ERR" in str(err.value)
-        run.assert_called_with(['fetch', "/src", "revision"], cwd="/dst",
-                               capture_output=False)
-
-    def test_git_merge(self):
-        '''Check merge functionality. The tests here will actually
-        mock the git results, so they will work even if git is not installed.
-        The system_tests will test an actual check out etc. '''
-
+        This test mocks the subprocess for speed and portability. Validation
+        when actually shelling out to a subprocess happens in system testing.
+        """
         git = Git()
-        # Note that only the first line will be returned
-        mock_result = mock.Mock(returncode=0)
-        with mock.patch('fab.tools.tool.subprocess.run',
-                        return_value=mock_result) as tool_run:
+        git.fetch("/src", "/dst", revision="revision")
+        assert mock_process.calls == deque([['git', 'fetch', '/src', 'revision']])
+        # Todo: Need to check that cwd was correctly set to /dst. See
+        #       https://github.com/aklajnert/pytest-subprocess/issues/177
+
+    def test_git_checkout(self, mock_process: FakeProcess):
+        """
+        Tests Git branch check-out functionality.
+
+        This test mocks the subprocess for speed and portability. Validation
+        when actually shelling out to a subprocess happens in system testing.
+        """
+        git = Git()
+        git.checkout("/src", "/dst", revision="revision")
+        assert mock_process.calls == deque(
+            [
+                ['git', 'fetch', '/src', 'revision'],
+                ['git', 'checkout', 'FETCH_HEAD']
+            ]
+        )
+        # Todo: Need to check that cwd was correctly set to /dst. See
+        #       https://github.com/aklajnert/pytest-subprocess/issues/177
+
+    def test_git_merge(self, mock_process: FakeProcess):
+        """
+        Tests Git merge functionality.
+
+        This test mocks the subprocess for speed and portability. Validation
+        when actually shelling out to a subprocess happens in system testing.
+        """
+        git = Git()
+        git.merge("/dst", revision="revision")
+        assert mock_process.calls == deque([['git', 'merge', 'FETCH_HEAD']])
+        # Todo: Need to check that cwd was correctly set to /dst. See
+        #       https://github.com/aklajnert/pytest-subprocess/issues/177
+
+    def test_git_merge_fail(self, fake_process: FakeProcess):
+        """
+        Tests Git merge functionality with merge failure.
+
+        This test mocks the subprocess for speed and portability. Validation
+        when actually shelling out to a subprocess happens in system testing.
+        """
+        git = Git()
+        foo = fake_process.register(['git', 'merge', 'FETCH_HEAD'], returncode=1)
+        fake_process.register(['git', 'merge', '--abort'], returncode=0)
+        with raises(RuntimeError) as err:
             git.merge("/dst", revision="revision")
-        tool_run.assert_called_once_with(
-            ['git', 'merge', 'FETCH_HEAD'], capture_output=False,
-            env=None, cwd='/dst', check=False)
+        assert err.value.args[0].split('\n') \
+               == ["Error merging revision. Merge aborted.",
+                   "Command failed with return code 1:",
+                   "git merge FETCH_HEAD"]
+        assert fake_process.calls == deque(
+            [
+                ['git', 'merge', 'FETCH_HEAD'],
+                ['git', 'merge', '--abort']
+            ]
+        )
+        # Todo: Need to check that cwd was correctly set to /dst. See
+        #       https://github.com/aklajnert/pytest-subprocess/issues/177
 
-        # Test the behaviour if merge fails, but merge --abort works:
-        # Simple function that raises an exception only the first time
-        # it is called.
-        def raise_1st_time():
-            yield RuntimeError
-            yield 0
+    def test_git_merge_abort_fail(self, fake_process: FakeProcess):
+        """
+        Tests Git merge functionality when merge fails followed by abort
+        failure as well.
 
-        with mock.patch.object(git, "run",
-                               side_effect=raise_1st_time()) as run:
-            with raises(RuntimeError) as err:
-                git.merge("/dst", revision="revision")
-            assert "Error merging revision. Merge aborted." in str(err.value)
-        run.assert_any_call(['merge', "FETCH_HEAD"], cwd="/dst",
-                            capture_output=False)
-        run.assert_any_call(['merge', "--abort"], cwd="/dst",
-                            capture_output=False)
-
-        # Test behaviour if both merge and merge --abort fail
-        with mock.patch.object(git, "run",
-                               side_effect=RuntimeError("ERR")) as run:
-            with raises(RuntimeError) as err:
-                git.merge("/dst", revision="revision")
-            assert "ERR" in str(err.value)
-        run.assert_called_with(['merge', "--abort"], cwd="/dst",
-                               capture_output=False)
+        This test mocks the subprocess for speed and portability. Validation
+        when actually shelling out to a subprocess happens in system testing.
+        """
+        git = Git()
+        foo = fake_process.register(['git', 'merge', 'FETCH_HEAD'], returncode=1)
+        fake_process.register(['git', 'merge', '--abort'], returncode=2)
+        with raises(RuntimeError) as err:
+            git.merge("/dst", revision="revision")
+        assert err.value.args[0].split('\n') \
+               == ["Command failed with return code 2:",
+                   "git merge --abort"]
+        # Todo: Need to check that cwd was correctly set to /dst. See
+        #       https://github.com/aklajnert/pytest-subprocess/issues/177
 
 
 # ============================================================================
@@ -196,93 +207,89 @@ class TestSubversion:
     """
     def test_svn_constructor(self):
         """
-        Test the git constructor.
+        Tests the constructor.
         """
         svn = Subversion()
         assert svn.category == Category.SUBVERSION
         assert svn.flags == []
         assert svn.name == "Subversion"
-        assert svn.exec_name == "svn"
+        assert svn.executable == Path("svn")
 
-    def test_svn_export(self):
+    def test_svn_export_revision(self, mock_process):
         """
-        Ensures an export from repository works.
+        Tests Subversion source tree export functionality.
 
-        Subversion is mocked here to allow testing without the executable.
-        Testing with happens below in TestSubversionReal.
+        This test mocks the subprocess for speed and portability. Validation
+        when actually shelling out to a subprocess happens in system testing.
         """
         svn = Subversion()
-        mock_result = mock.Mock(returncode=0)
-        with mock.patch('fab.tools.tool.subprocess.run',
-                        return_value=mock_result) as tool_run:
-            svn.export("/src", "/dst", revision="123")
+        svn.export("/src", "/dst", revision="123")
+        assert mock_process.calls == deque([['svn', 'export', '--force',
+                                             '--revision', '123',
+                                             '/src', '/dst']])
 
-        tool_run.assert_called_once_with(
-            ["svn", "export", "--force", "--revision", "123", "/src", "/dst"],
-            env=None, cwd=None, capture_output=True, check=False)
+    def test_svn_export_head(self, mock_process):
+        """
+        Tests Subversion source tree export functionality.
 
-        # Test if we don't specify a revision
-        mock_result = mock.Mock(returncode=0)
-        with mock.patch('fab.tools.tool.subprocess.run',
-                        return_value=mock_result) as tool_run:
-            svn.export("/src", "/dst")
-        tool_run.assert_called_once_with(
-            ["svn", "export", "--force", "/src", "/dst"],
-            env=None, cwd=None, capture_output=True, check=False)
-
-    def test_svn_checkout(self):
-        '''Check checkout svn functionality. The tests here will actually
-        mock the git results, so they will work even if subversion is not
-        installed. The system_tests will test an actual check out etc. '''
-
+        This test mocks the subprocess for speed and portability. Validation
+        when actually shelling out to a subprocess happens in system testing.
+        """
         svn = Subversion()
-        mock_result = mock.Mock(returncode=0)
-        with mock.patch('fab.tools.tool.subprocess.run',
-                        return_value=mock_result) as tool_run:
-            svn.checkout("/src", "/dst", revision="123")
+        svn.export("/src", "/dst")
+        assert mock_process.calls == deque([['svn', 'export', '--force',
+                                             '/src', '/dst']])
 
-        tool_run.assert_called_once_with(
-            ["svn", "checkout", "--revision", "123", "/src", "/dst"],
-            env=None, cwd=None, capture_output=True, check=False)
+    def test_svn_checkout_revision(self, mock_process):
+        """
+        Tests Subversion working copy check-out functionality.
 
-        # Test if we don't specify a revision
-        mock_result = mock.Mock(returncode=0)
-        with mock.patch('fab.tools.tool.subprocess.run',
-                        return_value=mock_result) as tool_run:
-            svn.checkout("/src", "/dst")
-        tool_run.assert_called_once_with(
-            ["svn", "checkout", "/src", "/dst"],
-            env=None, cwd=None, capture_output=True, check=False)
-
-    def test_svn_update(self):
-        '''Check update svn functionality. The tests here will actually
-        mock the git results, so they will work even if subversion is not
-        installed. The system_tests will test an actual check out etc. '''
-
+        This test mocks the subprocess for speed and portability. Validation
+        when actually shelling out to a subprocess happens in system testing.
+        """
         svn = Subversion()
-        mock_result = mock.Mock(returncode=0)
-        with mock.patch('fab.tools.tool.subprocess.run',
-                        return_value=mock_result) as tool_run:
-            svn.update("/dst", revision="123")
+        svn.checkout("/src", "/dst", revision="123")
+        assert mock_process.calls == deque([['svn', 'checkout',
+                                             '--revision', '123',
+                                             '/src', '/dst']])
 
-        tool_run.assert_called_once_with(
-            ["svn", "update", "--revision", "123"],
-            env=None, cwd="/dst", capture_output=True, check=False)
+    def test_svn_checkout_head(self, mock_process):
+        """
+        Tests Subversion working copy check-out functionality.
 
-    def test_svn_merge(self):
-        '''Check merge svn functionality. The tests here will actually
-        mock the git results, so they will work even if subversion is not
-        installed. The system_tests will test an actual check out etc. '''
-
+        This test mocks the subprocess for speed and portability. Validation
+        when actually shelling out to a subprocess happens in system testing.
+        """
         svn = Subversion()
-        mock_result = mock.Mock(returncode=0)
-        with mock.patch('fab.tools.tool.subprocess.run',
-                        return_value=mock_result) as tool_run:
-            svn.merge("/src", "/dst", "123")
+        svn.checkout("/src", "/dst")
+        assert mock_process.calls == deque([['svn', 'checkout',
+                                             '/src', '/dst']])
 
-        tool_run.assert_called_once_with(
-            ["svn", "merge", "--non-interactive", "/src@123"],
-            env=None, cwd="/dst", capture_output=True, check=False)
+    def test_svn_update(self, mock_process):
+        """
+        Tests Subversion working copy update functionality.
+
+        This test mocks the subprocess for speed and portability. Validation
+        when actually shelling out to a subprocess happens in system testing.
+        """
+        svn = Subversion()
+        svn.update("/dst", revision="123")
+        assert mock_process.calls == deque([['svn', 'update',
+                                             '--revision', '123', '/dst']])
+
+    def test_svn_merge(self, mock_process):
+        """
+        Tests Subversion merge functionality.
+
+        This test mocks the subprocess for speed and portability. Validation
+        when actually shelling out to a subprocess happens in system testing.
+        """
+        svn = Subversion()
+        svn.merge("/src", "/dst", "123")
+        assert mock_process.calls == deque([['svn', 'merge',
+                                             '--non-interactive', '/src@123']])
+        # Todo: Need to check that cwd was correctly set to /dst. See
+        #       https://github.com/aklajnert/pytest-subprocess/issues/177
 
 
 def _tree_compare(first: Path, second: Path) -> None:
@@ -388,4 +395,4 @@ class TestFcm:
         assert fcm.category == Category.FCM
         assert fcm.flags == []
         assert fcm.name == "FCM"
-        assert fcm.exec_name == "fcm"
+        assert fcm.executable == Path("fcm")

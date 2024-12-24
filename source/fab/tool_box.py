@@ -10,9 +10,9 @@
 import warnings
 from typing import Dict, Optional
 
-from fab.tools.category import Category
-from fab.tools.tool import Tool
-from fab.tools.tool_repository import ToolRepository
+from fab.category import Category
+from fab.tools import Tool
+from fab.tool_repository import ToolRepository
 
 
 class ToolBox:

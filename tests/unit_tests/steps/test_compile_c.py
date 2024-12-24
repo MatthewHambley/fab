@@ -44,9 +44,9 @@ def test_compile_c_wrong_compiler(content):
     # Take the Fortran compiler
     cc = tb[Category.C_COMPILER]
     # So overwrite the C compiler with the re-categorised Fortran compiler
-    cc._is_available = True
+    cc.__is_available = True
     tb.add_tool(cc, silent_replace=True)
-    cc._category = Category.FORTRAN_COMPILER
+    cc.__category = Category.FORTRAN_COMPILER
 
     # Now check that _compile_file detects the incorrect class of the
     # C compiler
@@ -145,7 +145,7 @@ class TestGetObjComboHash:
         config, analysed_file, expect_hash = content
         compiler = config.tool_box[Category.C_COMPILER]
         # Change the name of the compiler
-        compiler._name = compiler.name + "XX"
+        compiler.__name = compiler.name + "XX"
         result = _get_obj_combo_hash(compiler, analysed_file, flags)
         assert result != expect_hash
 

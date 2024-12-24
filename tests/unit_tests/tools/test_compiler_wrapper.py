@@ -6,14 +6,15 @@
 
 '''Tests the compiler wrapper implementation.
 '''
-
+from collections import deque
 from pathlib import Path
-from unittest import mock
+from typing import Tuple
 
-import pytest
+from pytest import raises, warns
 
-from fab.tools import (Category, CompilerWrapper, Gcc, Gfortran, Icc, Ifort,
-                       Mpicc, Mpif90, ToolRepository)
+from fab.category import Category
+from fab.tools.compiler import CCompiler, Gcc, Gfortran, Icc, Ifort
+from fab.tools.compiler_wrapper import CompilerWrapper, Mpicc, Mpif90
 
 
 def test_compiler_wrapper_compiler_getter():
@@ -25,22 +26,26 @@ def test_compiler_wrapper_compiler_getter():
     assert mpicc.compiler is gcc
 
 
-def test_compiler_wrapper_version_and_caching():
+def test_compiler_wrapper_version_and_caching(fake_process):
     '''Tests that the compiler wrapper reports the right version number
     from the actual compiler.
     '''
+    fake_process.register(['gcc', '--version'], stdout="gcc (foo) 1.2.3")
+    fake_process.register(['mpicc', '--version'], stdout="gcc (bar) 1.2.3")
     mpicc = Mpicc(Gcc())
-
     # The wrapper should report the version of the wrapped compiler:
-    with (mock.patch('fab.tools.compiler.Compiler.get_version',
-                     return_value=(123,))):
-        assert mpicc.get_version() == (123,)
-
+    assert mpicc.get_version() == (1,2,3)
+    assert mpicc.get_version() == (1,2,3)
     # Test that the value is cached:
-    assert mpicc.get_version() == (123,)
+    assert fake_process.calls == deque(
+        [
+            ['gcc', '--version'],
+            ['mpicc', '--version']
+        ]
+    )
 
 
-def test_compiler_wrapper_version_consistency():
+def test_compiler_wrapper_version_consistency(fake_process):
     '''Tests that the compiler wrapper and compiler must report the
     same version number:
     '''
@@ -52,202 +57,216 @@ def test_compiler_wrapper_version_consistency():
     # changes the return value of the wrapper compiler instance only:
 
     mpicc = Mpicc(Gcc())
-    with mock.patch('fab.tools.compiler.Compiler.run_version_command',
-                    return_value="gcc (GCC) 8.6.0 20210514 (Red Hat "
-                                 "8.5.0-20)"):
-        with mock.patch.object(mpicc.compiler, 'run_version_command',
-                               return_value="gcc (GCC) 8.5.0 20210514 (Red "
-                                            "Hat 8.5.0-20)"):
-            with pytest.raises(RuntimeError) as err:
-                mpicc.get_version()
-            assert ("Different version for compiler 'Gcc - gcc: gcc' (8.5.0) "
-                    "and compiler wrapper 'Mpicc(gcc)' (8.6.0)" in
-                    str(err.value))
+    fake_process.register(['gcc', '--version'],
+                          stdout="gcc (GCC) 8.6.0 20210514 (Red Hat 8.5.0-20)")
+    fake_process.register(['mpicc', '--version'],
+                          stdout="gcc (GCC) 8.5.0 20210514 (Red Hat 8.5.0-20)")
+    with raises(RuntimeError) as err:
+        mpicc.get_version()
+    assert str(err.value) == "Different version for compiler 'Gcc - gcc: gcc' (8.6.0) " \
+                    "and compiler wrapper 'Mpicc(gcc)' (8.5.0)."
 
 
-def test_compiler_wrapper_version_compiler_unavailable():
+def test_compiler_wrapper_version_compiler_unavailable(stub_c_compiler, fake_process):
     '''Checks the behaviour if the wrapped compiler is not available.
     The wrapper should then report an empty result.
     '''
+    mpicc = Mpicc(stub_c_compiler)
+    fake_process.register(['stubc', '--version'], returncode=2)
+    with raises(RuntimeError) as err:
+        assert mpicc.get_version() == ""
+    assert str(err.value) == "Cannot get version of wrapped compiler 'StubC - stub_c_compiler: stubc'"
 
-    mpicc = Mpicc(Gcc())
-    with mock.patch.object(mpicc.compiler, '_is_available', False):
-        with pytest.raises(RuntimeError) as err:
-            assert mpicc.get_version() == ""
-        assert "Cannot get version of wrapped compiler" in str(err.value)
 
-
-def test_compiler_is_available_ok():
+def test_compiler_is_available_ok(stub_c_compiler, mock_process):
     '''Check if check_available works as expected.
     '''
-    mpicc = Mpicc(Gcc())
-
-    # Just make sure we get the right object:
-    assert isinstance(mpicc, CompilerWrapper)
-    assert mpicc._is_available is None
-
-    # Make sure that the compiler-wrapper itself reports that it is available:
-    # even if mpicc is not installed:
-    with mock.patch('fab.tools.compiler_wrapper.CompilerWrapper.'
-                    'check_available', return_value=True) as check_available:
-        assert mpicc.is_available
-        assert mpicc.is_available
-        # Due to caching there should only be one call to check_avail
-        check_available.assert_called_once_with()
-
-    # Test that the value is indeed cached:
-    assert mpicc._is_available
+    mpicc = Mpicc(stub_c_compiler)
+    assert mpicc.is_available is True
+    assert mpicc.is_available is True
+    # Due to caching there should only be one invocation of the executable.
+    assert mock_process.calls == deque(
+        [
+            ['stubc', '--version'],
+            ['mpicc', '--version']
+        ]
+    )
 
 
-def test_compiler_is_available_no_version():
+def test_compiler_is_available_no_version(fake_process):
     '''Make sure a compiler that does not return a valid version
     is marked as not available.
     '''
     mpicc = Mpicc(Gcc())
+    fake_process.register(['gcc', '--version'], stdout='argle.bargle')
     # Now test if get_version raises an error
-    with mock.patch.object(mpicc.compiler, "get_version",
-                           side_effect=RuntimeError("")):
-        assert not mpicc.is_available
+    assert mpicc.is_available is False
 
 
-def test_compiler_hash():
+class HashStubC(CCompiler):
+    def __init__(self, name: str, version: Tuple[int, ...]):
+        super().__init__(name, Path('vc'), 'foo')
+        self.__version = version
+
+    def get_version(self) -> Tuple[int, ...]:
+        return self.__version
+
+
+def test_compiler_hash(monkeypatch):
     '''Test the hash functionality.'''
-    mpicc = ToolRepository().get_tool(Category.C_COMPILER,
-                                      "mpicc-gcc")
-    with mock.patch.object(mpicc, "_version", (567,)):
-        hash1 = mpicc.get_hash()
-        assert hash1 == 4702012005
+    def mpi_version():
+        return (567,)
+
+    mpicc = Mpicc(HashStubC('cheese', 123))
+    monkeypatch.setattr(mpicc, 'get_version', mpi_version)
+    hash1 = mpicc.get_hash()
+    assert hash1 == 7572106968
+
+    # The same result across instances
+    mpicc2 = Mpicc(HashStubC('cheese', 123))
+    monkeypatch.setattr(mpicc2, 'get_version', mpi_version)
+    hash1_5 = mpicc2.get_hash()
+    assert hash1_5 == hash1
 
     # A change in the version number must change the hash:
-    with mock.patch.object(mpicc, "_version", (89,)):
-        hash2 = mpicc.get_hash()
-        assert hash2 != hash1
+    def mpi_version2():
+        return (89,)
+
+    monkeypatch.setattr(mpicc, 'get_version', mpi_version2)
+    hash2 = mpicc.get_hash()
+    assert hash2 != hash1
 
     # A change in the name with the original version number
     # 567) must change the hash again:
-    with mock.patch.object(mpicc, "_name", "new_name"):
-        with mock.patch.object(mpicc, "_version", (567,)):
-            hash3 = mpicc.get_hash()
-            assert hash3 not in (hash1, hash2)
+    mpicc3 = Mpicc(HashStubC('beef', 123))
+    monkeypatch.setattr(mpicc3, 'get_version', mpi_version)
+    hash3 = mpicc3.get_hash()
+    assert hash3 not in (hash1, hash2)
 
     # A change in the name with the modified version number
     # must change the hash again:
-    with mock.patch.object(mpicc, "_name", "new_name"):
-        with mock.patch.object(mpicc, "_version", (89,)):
-            hash4 = mpicc.get_hash()
-            assert hash4 not in (hash1, hash2, hash3)
+    monkeypatch.setattr(mpicc3, 'get_version', mpi_version2)
+    hash4 = mpicc3.get_hash()
+    assert hash4 not in (hash1, hash2, hash3)
 
 
-def test_compiler_wrapper_syntax_only():
-    '''Tests handling of syntax only flags in wrapper. In case of testing
-    syntax only for a C compiler an exception must be raised.'''
-    mpif90 = ToolRepository().get_tool(Category.FORTRAN_COMPILER,
-                                       "mpif90-gfortran")
+def test_fortran_wrapper_syntax_only():
+    """
+    Tests "syntax only" behaviour of Fortran wrapper.
+    """
+    mpif90 = Mpif90(Gfortran())
     assert mpif90.has_syntax_only
 
-    mpicc = ToolRepository().get_tool(Category.C_COMPILER, "mpicc-gcc")
-    with pytest.raises(RuntimeError) as err:
+def test_c_wrapper_syntax_only():
+    """
+    Tests that C wrapper rejects "syntax only" mode.
+    """
+    mpicc = Mpicc(Gcc())
+    with raises(RuntimeError) as err:
         _ = mpicc.has_syntax_only
-    assert "'gcc' has no has_syntax_only" in str(err.value)
+    assert str(err.value) == "Compiler 'gcc' has no has_syntax_only."
 
 
-def test_compiler_wrapper_module_output():
-    '''Tests handling of module output_flags in a wrapper. In case of testing
-    this with a C compiler, an exception must be raised.'''
-    mpif90 = ToolRepository().get_tool(Category.FORTRAN_COMPILER,
-                                       "mpif90-gfortran")
+def test_forter_wrapper_module_output(mock_process):
+    """
+    Tests setting and getting module output control.
+    """
+    mpif90 = Mpif90(Gfortran())
     mpif90.set_module_output_path("/somewhere")
     assert mpif90.compiler._module_output_path == "/somewhere"
 
-    mpicc = ToolRepository().get_tool(Category.C_COMPILER, "mpicc-gcc")
-    with pytest.raises(RuntimeError) as err:
+def test_c_wrapper_module_output(mock_process):
+    """
+    Tests that setting module output control is rejected.
+    """
+    mpicc = Mpicc(Gcc())
+    with raises(RuntimeError) as err:
         mpicc.set_module_output_path("/tmp")
-    assert "'gcc' has no 'set_module_output_path' function" in str(err.value)
+    assert str(err.value) == "Compiler 'gcc' has no 'set_module_output_path' function."
 
 
-def test_compiler_wrapper_fortran_with_add_args():
+def test_compiler_wrapper_fortran_with_add_args(mock_process):
     '''Tests that additional arguments are handled as expected in
     a wrapper.'''
-    mpif90 = ToolRepository().get_tool(Category.FORTRAN_COMPILER,
-                                       "mpif90-gfortran")
+    mpif90 = Mpif90(Gfortran())
     mpif90.set_module_output_path("/module_out")
-    with mock.patch.object(mpif90.compiler, "run", mock.MagicMock()):
-        with pytest.warns(UserWarning, match="Removing managed flag"):
-            mpif90.compile_file(Path("a.f90"), "a.o",
-                                add_flags=["-J/b", "-O3"], openmp=False,
-                                syntax_only=True)
+    with warns(UserWarning, match="Removing managed flag"):
+        mpif90.compile_file(Path("a.f90"), "a.o",
+                            add_flags=["-J/b", "-O3"], openmp=False,
+                            syntax_only=True)
         # Notice that "-J/b" has been removed
-        mpif90.compiler.run.assert_called_with(
-            cwd=Path('.'), additional_parameters=['-c', "-O3",
-                                                  '-fsyntax-only',
-                                                  '-J', '/module_out',
-                                                  'a.f90', '-o', 'a.o'])
+        assert mock_process.calls == deque(
+            [['mpif90', '-c', "-O3", '-fsyntax-only', '-J', '/module_out',
+              'a.f90', '-o', 'a.o']]
+        )
 
 
-def test_compiler_wrapper_fortran_with_add_args_unnecessary_openmp():
+def test_compiler_wrapper_fortran_with_add_args_unnecessary_openmp(mock_process):
     '''Tests that additional arguments are handled as expected in
     a wrapper if also the openmp flags are specified.'''
-    mpif90 = ToolRepository().get_tool(Category.FORTRAN_COMPILER,
-                                       "mpif90-gfortran")
+    mpif90 = Mpif90(Gfortran())
     mpif90.set_module_output_path("/module_out")
-    with mock.patch.object(mpif90.compiler, "run", mock.MagicMock()):
-        with pytest.warns(UserWarning,
-                          match="explicitly provided. OpenMP should be "
-                                "enabled in the BuildConfiguration"):
-            mpif90.compile_file(Path("a.f90"), "a.o",
-                                add_flags=["-fopenmp", "-O3"],
-                                openmp=True, syntax_only=True)
-            mpif90.compiler.run.assert_called_with(
-                cwd=Path('.'),
-                additional_parameters=['-c', '-fopenmp', '-fopenmp', '-O3',
+    with warns(UserWarning,
+               match="explicitly provided. "
+                     "OpenMP should be enabled in the BuildConfiguration"):
+        mpif90.compile_file(Path("a.f90"), "a.o",
+                            add_flags=["-fopenmp", "-O3"],
+                            openmp=True, syntax_only=True)
+    assert mock_process.calls == deque(
+        [['mpif90', '-c', '-fopenmp', '-fopenmp', '-O3',
                                        '-fsyntax-only', '-J', '/module_out',
-                                       'a.f90', '-o', 'a.o'])
+                                       'a.f90', '-o', 'a.o']]
+    )
 
 
-def test_compiler_wrapper_c_with_add_args():
-    '''Tests that additional arguments are handled as expected in a
-    compiler wrapper. Also verify that requesting Fortran-specific options
-    like syntax-only with the C compiler raises a runtime error.
-    '''
+def test_compiler_wrapper_c_with_add_args(mock_process):
+    """
+    Tests argument handling of wrapped C compiler.
+    """
+    mpicc = Mpicc(Gcc())
+    mpicc.compile_file(Path("a.f90"), "a.o", openmp=False,
+                       add_flags=["-O3"])
+    assert mock_process.calls == deque(
+        [['mpicc', '-c', "-O3", 'a.f90', '-o', 'a.o']]
+    )
 
-    mpicc = ToolRepository().get_tool(Category.C_COMPILER,
-                                      "mpicc-gcc")
-    with mock.patch.object(mpicc.compiler, "run", mock.MagicMock()):
-        # Normal invoke of the C compiler, make sure add_flags are
-        # passed through:
+
+def test_wrapped_c_rejects_fortran(mock_process):
+    """
+    Tests that a wrapped C compiler rejects Fortran only optons.
+
+    In this case "syntax_only".
+    """
+    mpicc = Mpicc(Gcc())
+    with raises(RuntimeError) as err:
         mpicc.compile_file(Path("a.f90"), "a.o", openmp=False,
-                           add_flags=["-O3"])
-        mpicc.compiler.run.assert_called_with(
-            cwd=Path('.'), additional_parameters=['-c', "-O3", 'a.f90',
-                                                  '-o', 'a.o'])
-        # Invoke C compiler with syntax-only flag (which is only supported
-        # by Fortran compilers), which should raise an exception.
-        with pytest.raises(RuntimeError) as err:
-            mpicc.compile_file(Path("a.f90"), "a.o", openmp=False,
-                               add_flags=["-O3"], syntax_only=True)
-    assert ("Syntax-only cannot be used with compiler 'mpicc-gcc'."
-            in str(err.value))
+                           add_flags=["-O3"], syntax_only=True)
+    assert str(err.value) == "Syntax-only cannot be used with compiler 'mpicc-gcc'."
 
-    # Check that providing the openmp flag in add_flag raises a warning:
-    with mock.patch.object(mpicc.compiler, "run", mock.MagicMock()):
-        with pytest.warns(UserWarning,
-                          match="explicitly provided. OpenMP should be "
-                                "enabled in the BuildConfiguration"):
-            mpicc.compile_file(Path("a.f90"), "a.o",
-                               add_flags=["-fopenmp", "-O3"],
-                               openmp=True)
-            mpicc.compiler.run.assert_called_with(
-                cwd=Path('.'),
-                additional_parameters=['-c', '-fopenmp', '-fopenmp', '-O3',
-                                       'a.f90', '-o', 'a.o'])
+
+def test_wrapped_c_warns_openmp(mock_process):
+    """
+    Tests that providing an OpenMP argument raises a warning.
+    """
+    mpicc = Mpicc(Gcc())
+    with warns(UserWarning,
+               match="explicitly provided. "
+                     "OpenMP should be enabled in the BuildConfiguration"):
+        mpicc.compile_file(Path("a.f90"), "a.o",
+                           add_flags=["-fopenmp", "-O3"],
+                           openmp=True)
+    assert mock_process.calls == deque(
+        [['mpicc', '-c', '-fopenmp', '-fopenmp', '-O3', 'a.f90', '-o', 'a.o']]
+    )
 
 
 def test_compiler_wrapper_flags_independent():
-    '''Tests that flags set in the base compiler will be accessed in the
-    wrapper, but not the other way round.'''
+    """
+    Tests that flags set in the base compiler will be accessed in the
+    wrapper, but not the other way round.
+    """
     gcc = Gcc()
     mpicc = Mpicc(gcc)
-    # pylint: disable=use-implicit-booleaness-not-comparison
     assert gcc.flags == []
     assert mpicc.flags == []
     # Setting flags in gcc must become visible in the wrapper compiler:
@@ -265,43 +284,40 @@ def test_compiler_wrapper_flags_independent():
     assert mpicc.flags == ["-a", "-b", "-d", "-e"]
 
 
-def test_compiler_wrapper_flags_with_add_arg():
-    '''Tests that flags set in the base compiler will be accessed in the
-    wrapper if also additional flags are specified.'''
+def test_compiler_wrapper_flags_with_add_arg(mock_process):
+    """
+    Tests the handling of compiler arguments.
+
+    They must be presented in the correct order, wrapper first, then compiler,
+    finally additions.
+    """
     gcc = Gcc()
     mpicc = Mpicc(gcc)
     gcc.add_flags(["-a", "-b"])
     mpicc.add_flags(["-d", "-e"])
-
-    # Check that the flags are assembled in the right order in the
-    # actual compiler call: first the wrapper compiler flag, then
-    # the wrapper flag, then additional flags
-    with mock.patch.object(mpicc.compiler, "run", mock.MagicMock()):
-        mpicc.compile_file(Path("a.f90"), "a.o", add_flags=["-f"],
-                           openmp=True)
-        mpicc.compiler.run.assert_called_with(
-                cwd=Path('.'),
-                additional_parameters=["-c", "-fopenmp", "-a", "-b", "-d",
-                                       "-e", "-f", "a.f90", "-o", "a.o"])
+    mpicc.compile_file(Path("a.f90"), "a.o", add_flags=["-f"],
+                       openmp=True)
+    assert mock_process.calls == deque(
+        [['mpicc', '-a', '-b', '-c', '-fopenmp',
+          '-a', '-b', '-d', '-e', '-f', 'a.f90', '-o', 'a.o']]
+    )
 
 
-def test_compiler_wrapper_flags_without_add_arg():
-    '''Tests that flags set in the base compiler will be accessed in the
-    wrapper if no additional flags are specified.'''
+def test_compiler_wrapper_flags_without_add_arg(mock_process):
+    """
+    Tests the handling of compiler arguments.
+
+    They must be presented in the correct order, wrapper first, then compiler.
+    """
     gcc = Gcc()
     mpicc = Mpicc(gcc)
     gcc.add_flags(["-a", "-b"])
     mpicc.add_flags(["-d", "-e"])
-    # Check that the flags are assembled in the right order in the
-    # actual compiler call: first the wrapper compiler flag, then
-    # the wrapper flag, then additional flags
-    with mock.patch.object(mpicc.compiler, "run", mock.MagicMock()):
-        # Test if no add_flags are specified:
-        mpicc.compile_file(Path("a.f90"), "a.o", openmp=True)
-        mpicc.compiler.run.assert_called_with(
-                cwd=Path('.'),
-                additional_parameters=["-c", "-fopenmp", "-a", "-b", "-d",
-                                       "-e", "a.f90", "-o", "a.o"])
+    mpicc.compile_file(Path("a.f90"), "a.o", openmp=True)
+    assert mock_process.calls == deque(
+        [['mpicc', "-a", "-b", '-c', '-fopenmp',
+          '-a', '-b', '-d', '-e', 'a.f90', '-o', 'a.o']]
+    )
 
 
 def test_compiler_wrapper_mpi_gcc():
@@ -338,7 +354,9 @@ def test_compiler_wrapper_mpi_icc():
 
 
 def test_compiler_wrapper_mpi_ifort():
-    '''Tests the MPI enabled ifort class.'''
+    """
+    Tests MPI wrapped IFort constructor.
+    """
     mpi_ifort = Mpif90(Ifort())
     assert mpi_ifort.name == "mpif90-ifort"
     assert str(mpi_ifort) == "Mpif90(ifort)"

@@ -10,8 +10,8 @@
 from pathlib import Path
 from typing import Callable, List, Optional, TYPE_CHECKING, Union
 
-from fab.tools.category import Category
-from fab.tools.tool import Tool
+from fab.category import Category
+from fab.tools import Tool
 
 if TYPE_CHECKING:
     # TODO 314: see if this circular dependency can be broken

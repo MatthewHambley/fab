@@ -12,7 +12,8 @@ from fab.steps.compile_fortran import (
     compile_pass, get_compile_next,
     get_mod_hashes, handle_compiler_args, MpCommonArgs, process_file,
     store_artefacts)
-from fab.tools import Category, ToolBox
+from fab.category import Category
+from fab.tool_box import ToolBox
 from fab.util import CompiledFile
 
 
@@ -39,7 +40,7 @@ def test_compile_cc_wrong_compiler(tool_box):
     # Get the default Fortran compiler into the ToolBox
     fc = tool_box[Category.FORTRAN_COMPILER]
     # But then change its category to be a C compiler:
-    fc._category = Category.C_COMPILER
+    fc.__category = Category.C_COMPILER
 
     # Now check that _compile_file detects the incorrect category of the
     # Fortran compiler
@@ -342,7 +343,7 @@ class TestProcessFile:
         # changing the compiler must change the combo hash for the mods and obj
         mp_common_args, flags, analysed_file, orig_obj_hash, orig_mods_hash = content
         compiler = mp_common_args.config.tool_box[Category.FORTRAN_COMPILER]
-        compiler._name += "xx"
+        compiler.__name += "xx"
 
         obj_combo_hash = '19dfa6c83'
         mods_combo_hash = '12768d979'

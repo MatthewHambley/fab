@@ -24,8 +24,8 @@ from fab.artefacts import ArtefactSet, ArtefactStore
 from fab.constants import BUILD_OUTPUT, SOURCE_ROOT, PREBUILD
 from fab.metrics import (send_metric, init_metrics, stop_metrics,
                          metrics_summary)
-from fab.tools.category import Category
-from fab.tools.tool_box import ToolBox
+from fab.category import Category
+from fab.tool_box import ToolBox
 from fab.steps.cleanup_prebuilds import CLEANUP_COUNT, cleanup_prebuilds
 from fab.util import TimerLogger, by_type, get_fab_workspace
 

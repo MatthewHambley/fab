@@ -21,7 +21,7 @@ classifiers = [
 [project.optional-dependencies]
 c-language = ['clang']
 plots = ['matplotlib']
-tests = ['pytest', 'pytest-cov', 'pytest-mock']
+tests = ['pytest', 'pytest-cov', 'pytest-mock', 'pytest-subprocess']
 checks = ['flake8>=5.0.4', 'mypy']
 docs = ['sphinx',
         'pydata-sphinx-theme>=0.13.3',

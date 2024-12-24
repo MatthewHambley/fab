@@ -3,46 +3,45 @@
 # For further details please refer to the file COPYRIGHT
 # which you should have received as part of this distribution
 ##############################################################################
-
-"""This file contains the base class for any preprocessor, and two derived
-classes for cpp and fpp.
-
 """
-
+Source code preprocessor support.
+"""
 from pathlib import Path
 from typing import List, Optional, Union
 
-from fab.tools.category import Category
-from fab.tools.tool import Tool
+from fab.category import Category
+from fab.tools import Tool
 
 
 class Preprocessor(Tool):
     '''This is the base class for any preprocessor.
 
     :param name: the name of the preprocessor.
-    :param exec_name: the name of the executable.
+    :param executable: the name of the executable.
     :param category: the category (C_PREPROCESSOR or FORTRAN_PREPROCESSOR)
     '''
 
-    def __init__(self, name: str, exec_name: Union[str, Path],
+    def __init__(self, name: str, executable: Union[str, Path],
                  category: Category,
-                 availability_option: Optional[str] = None):
-        super().__init__(name, exec_name, category)
+                 availability_argument: Optional[str] = None):
+        super().__init__(name, executable, category)
         self._version = None
 
     def preprocess(self, input_file: Path, output_file: Path,
-                   add_flags: Union[None, List[Union[Path, str]]] = None):
-        '''Calls the preprocessor to process the specified input file,
+                   add_flags: Optional[List[Union[Path, str]]] = None):
+        """
+        Calls the preprocessor to process the specified input file,
         creating the requested output file.
 
         :param input_file: input file.
         :param output_file: the output filename.
         :param add_flags: List with additional flags to be used.
-        '''
+        """
         params: List[Union[str, Path]] = []
-        if add_flags:
+        if add_flags is not None:
             # Make a copy to avoid modifying the caller's list
-            params = add_flags[:]
+            params.extend(add_flags)
+
         # Input and output files come as the last two parameters
         params.extend([input_file, output_file])
 
@@ -74,4 +73,4 @@ class Fpp(Preprocessor):
         # fpp -V prints version information, but then hangs (i.e. reading
         # from stdin), so use -what to see if it is available
         super().__init__("fpp", "fpp", Category.FORTRAN_PREPROCESSOR,
-                         availability_option="-what")
+                         availability_argument="-what")

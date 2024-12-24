@@ -7,7 +7,7 @@
 """This file contains the base class for any compiler, and derived
 classes for gcc, gfortran, icc, ifort
 """
-
+from logging import getLogger
 import os
 import re
 from pathlib import Path
@@ -15,9 +15,9 @@ import warnings
 from typing import List, Optional, Tuple, Union
 import zlib
 
-from fab.tools.category import Category
-from fab.tools.flags import Flags
-from fab.tools.tool import CompilerSuiteTool
+from fab.category import Category
+from fab.flags import Flags
+from fab.tools import CompilerSuiteTool
 
 
 class Compiler(CompilerSuiteTool):
@@ -28,7 +28,7 @@ class Compiler(CompilerSuiteTool):
     - OpenMP
 
     :param name: name of the compiler.
-    :param exec_name: name of the executable to start.
+    :param executable: name of the executable to start.
     :param suite: name of the compiler suite this tool belongs to.
     :param category: the Category (C_COMPILER or FORTRAN_COMPILER).
     :param mpi: whether the compiler or linker support MPI.
@@ -38,23 +38,23 @@ class Compiler(CompilerSuiteTool):
         of the output file
     :param openmp_flag: the flag to use to enable OpenMP. If no flag is
         specified, it is assumed that the compiler does not support OpenMP.
-    :param availability_option: a command line option for the tool to test
+    :param availability_argument: a command line option for the tool to test
         if the tool is available on the current system. Defaults to
         `--version`.
     '''
 
     # pylint: disable=too-many-arguments
     def __init__(self, name: str,
-                 exec_name: Union[str, Path],
+                 executable: Union[str, Path],
                  suite: str,
                  category: Category,
                  mpi: bool = False,
                  compile_flag: Optional[str] = None,
                  output_flag: Optional[str] = None,
                  openmp_flag: Optional[str] = None,
-                 availability_option: Optional[str] = None):
-        super().__init__(name, exec_name, suite, category=category,
-                         availability_option=availability_option)
+                 availability_argument: Optional[str] = None):
+        super().__init__(name, executable, suite, category=category,
+                         availability_argument=availability_argument)
         self._version: Union[Tuple[int, ...], None] = None
         self._mpi = mpi
         self._compile_flag = compile_flag if compile_flag else "-c"
@@ -118,7 +118,8 @@ class Compiler(CompilerSuiteTool):
         return self.run(cwd=input_file.parent,
                         additional_parameters=params)
 
-    def check_available(self) -> bool:
+    @property
+    def is_available(self) -> bool:
         '''Checks if the compiler is available. While the method in
         the Tools base class would be sufficient (when using --version),
         in case of a compiler we also want to store the compiler version.
@@ -134,7 +135,7 @@ class Compiler(CompilerSuiteTool):
             return True
         except RuntimeError as err:
             # Compiler does not exist, or version could not be handled:
-            self.logger.error(f'Error getting compiler version: {err}')
+            getLogger(__name__).error(f'Error getting compiler version: {err}')
             return False
 
     def get_version(self) -> Tuple[int, ...]:
@@ -172,7 +173,7 @@ class Compiler(CompilerSuiteTool):
                                f"compiler '{self.name}'. Should have at least "
                                f"two parts, <n.n[.n, ...]>: {version_string}")
 
-        self.logger.info(
+        getLogger(__name__).info(
             f'Found compiler version for {self.name} = {version_string}')
         self._version = version
         return version
@@ -224,7 +225,7 @@ class CCompiler(Compiler):
     of the compiler as convenience.
 
     :param name: name of the compiler.
-    :param exec_name: name of the executable to start.
+    :param executable: name of the executable to start.
     :param suite: name of the compiler suite.
     :param mpi: whether the compiler or linker support MPI.
     :param compile_flag: the compilation flag to use when only requesting
@@ -235,12 +236,12 @@ class CCompiler(Compiler):
     '''
 
     # pylint: disable=too-many-arguments
-    def __init__(self, name: str, exec_name: str, suite: str,
+    def __init__(self, name: str, executable: str, suite: str,
                  mpi: bool = False,
                  compile_flag: Optional[str] = None,
                  output_flag: Optional[str] = None,
                  openmp_flag: Optional[str] = None):
-        super().__init__(name, exec_name, suite,
+        super().__init__(name, executable, suite,
                          category=Category.C_COMPILER, mpi=mpi,
                          compile_flag=compile_flag, output_flag=output_flag,
                          openmp_flag=openmp_flag)
@@ -253,7 +254,7 @@ class FortranCompiler(Compiler):
     compilation (which will only generate the .mod files).
 
     :param name: name of the compiler.
-    :param exec_name: name of the executable to start.
+    :param executable: name of the executable to start.
     :param suite: name of the compiler suite.
     :param mpi: whether MPI is supported by this compiler or not.
     :param compile_flag: the compilation flag to use when only requesting
@@ -268,7 +269,7 @@ class FortranCompiler(Compiler):
     '''
 
     # pylint: disable=too-many-arguments
-    def __init__(self, name: str, exec_name: str, suite: str,
+    def __init__(self, name: str, executable: str, suite: str,
                  mpi: bool = False,
                  compile_flag: Optional[str] = None,
                  output_flag: Optional[str] = None,
@@ -277,7 +278,7 @@ class FortranCompiler(Compiler):
                  syntax_only_flag: Optional[str] = None,
                  ):
 
-        super().__init__(name=name, exec_name=exec_name, suite=suite,
+        super().__init__(name=name, executable=executable, suite=suite,
                          category=Category.FORTRAN_COMPILER,
                          mpi=mpi, compile_flag=compile_flag,
                          output_flag=output_flag, openmp_flag=openmp_flag)
@@ -376,14 +377,14 @@ class Gcc(GnuVersionHandling, CCompiler):
     '''Class for GNU's gcc compiler.
 
     :param name: name of this compiler.
-    :param exec_name: name of the executable.
+    :param executable: name of the executable.
     :param mpi: whether the compiler supports MPI.
     '''
     def __init__(self,
                  name: str = "gcc",
-                 exec_name: str = "gcc",
+                 executable: str = "gcc",
                  mpi: bool = False):
-        super().__init__(name, exec_name, suite="gnu", mpi=mpi,
+        super().__init__(name, executable, suite="gnu", mpi=mpi,
                          openmp_flag="-fopenmp")
 
 
@@ -392,13 +393,13 @@ class Gfortran(GnuVersionHandling, FortranCompiler):
     '''Class for GNU's gfortran compiler.
 
     :param name: name of this compiler.
-    :param exec_name: name of the executable.
+    :param executable: name of the executable.
     :param mpi: whether the compiler supports MPI.
     '''
 
     def __init__(self, name: str = "gfortran",
-                 exec_name: str = "gfortran"):
-        super().__init__(name, exec_name, suite="gnu",
+                 executable: str = "gfortran"):
+        super().__init__(name, executable, suite="gnu",
                          openmp_flag="-fopenmp",
                          module_folder_flag="-J",
                          syntax_only_flag="-fsyntax-only")
@@ -443,12 +444,12 @@ class Icc(IntelVersionHandling, CCompiler):
     '''Class for the Intel's icc compiler.
 
     :param name: name of this compiler.
-    :param exec_name: name of the executable.
+    :param executable: name of the executable.
     :param mpi: whether the compiler supports MPI.
     '''
 
-    def __init__(self, name: str = "icc", exec_name: str = "icc"):
-        super().__init__(name, exec_name, suite="intel-classic",
+    def __init__(self, name: str = "icc", executable: str = "icc"):
+        super().__init__(name, executable, suite="intel-classic",
                          openmp_flag="-qopenmp")
 
 
@@ -457,12 +458,12 @@ class Ifort(IntelVersionHandling, FortranCompiler):
     '''Class for Intel's ifort compiler.
 
     :param name: name of this compiler.
-    :param exec_name: name of the executable.
+    :param executable: name of the executable.
     :param mpi: whether the compiler supports MPI.
     '''
 
-    def __init__(self, name: str = "ifort", exec_name: str = "ifort"):
-        super().__init__(name, exec_name, suite="intel-classic",
+    def __init__(self, name: str = "ifort", executable: str = "ifort"):
+        super().__init__(name, executable, suite="intel-classic",
                          module_folder_flag="-module",
                          openmp_flag="-qopenmp",
                          syntax_only_flag="-syntax-only")

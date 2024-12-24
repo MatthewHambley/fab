@@ -6,10 +6,14 @@
 
 '''Tests the rsync implementation.
 '''
+from collections import deque
+from pathlib import Path
 
-from unittest import mock
+from pytest_subprocess.fake_popen import FakePopen
+from pytest_subprocess.fake_process import FakeProcess
 
-from fab.tools import (Category, Rsync)
+from fab.category import Category
+from fab.tools.rsync import Rsync
 
 
 def test_ar_constructor():
@@ -17,43 +21,43 @@ def test_ar_constructor():
     rsync = Rsync()
     assert rsync.category == Category.RSYNC
     assert rsync.name == "rsync"
-    assert rsync.exec_name == "rsync"
+    assert rsync.executable == Path("rsync")
     assert rsync.flags == []
 
 
-def test_rsync_check_available():
+def test_rsync_is_available(mock_process):
     '''Tests the is_available functionality.'''
     rsync = Rsync()
-    with mock.patch("fab.tools.tool.Tool.run") as tool_run:
-        assert rsync.check_available()
-    tool_run.assert_called_once_with("--version")
-
-    # Test behaviour if a runtime error happens:
-    with mock.patch("fab.tools.tool.Tool.run",
-                    side_effect=RuntimeError("")) as tool_run:
-        assert not rsync.check_available()
+    assert rsync.is_available is True
+    assert mock_process.calls == deque([['rsync', '--version']])
 
 
-def test_rsync_create():
-    '''Test executing an rsync, and also make sure that src always
-    end on a '/'.
-    '''
+def test_rsync_is_not_avaiolable(fake_process: FakeProcess):
+    """
+    Tests that missing executable is correctly reported.
+    """
+    def missing_exe(process: FakePopen):
+        process.returncode = 1
+        raise FileNotFoundError()
+
+    test_unit = Rsync()
+    fake_process.register(['rsync', '--version'], callback=missing_exe)
+    assert test_unit.is_available is False
+
+
+def test_rsync_create_source_directory(mock_process):
+    """
+    Tests rsync with source ending with '/'.
+    """
     rsync = Rsync()
+    rsync.execute(src="/src/", dst="/dst")
+    assert mock_process.calls == deque([['rsync', '--times', '--links', '--stats', '-ru', '/src/', '/dst']])
 
-    # Test 1: src with /
-    mock_result = mock.Mock(returncode=0)
-    with mock.patch('fab.tools.tool.subprocess.run',
-                    return_value=mock_result) as tool_run:
-        rsync.execute(src="/src/", dst="/dst")
-    tool_run.assert_called_with(
-        ['rsync', '--times', '--links', '--stats', '-ru', '/src/', '/dst'],
-        capture_output=True, env=None, cwd=None, check=False)
 
-    # Test 2: src without /
-    mock_result = mock.Mock(returncode=0)
-    with mock.patch('fab.tools.tool.subprocess.run',
-                    return_value=mock_result) as tool_run:
-        rsync.execute(src="/src", dst="/dst")
-    tool_run.assert_called_with(
-        ['rsync', '--times', '--links', '--stats', '-ru', '/src/', '/dst'],
-        capture_output=True, env=None, cwd=None, check=False)
+def test_rsync_create_source_file(mock_process):
+    """
+    Tests rsync when source does not end with '/'.
+    """
+    test_unit = Rsync()
+    test_unit.execute(src="/src", dst="/dst")
+    assert mock_process.calls == deque([['rsync', '--times', '--links', '--stats', '-ru', '/src/', '/dst']])

@@ -9,10 +9,14 @@
 from unittest import mock
 import warnings
 
-import pytest
+from pytest import raises, warns
 
-from fab.tools import Category, CCompiler, Gfortran, ToolBox, ToolRepository
+from fab.category import Category
+from fab.tools.compiler import CCompiler, Gfortran
+from fab.tool_box import ToolBox
+from fab.tool_repository import ToolRepository
 
+from ..conftest import StubC
 
 def test_tool_box_constructor():
     '''Tests the ToolBox constructor.'''
@@ -39,21 +43,18 @@ def test_tool_box_get_tool():
     assert gfortran is tr_gfortran
 
 
-def test_tool_box_add_tool_replacement():
+def test_tool_box_add_tool_replacement(mock_process):
     '''Test that replacing a tool raises a warning, and that this
     warning can be disabled.'''
-
     tb = ToolBox()
-    mock_compiler1 = CCompiler("mock_c_compiler1", "mock_exec1", "suite")
-    mock_compiler1._is_available = True
-    mock_compiler2 = CCompiler("mock_c_compiler2", "mock_exec2", "suite")
-    mock_compiler2._is_available = True
-
+    mock_compiler1 = StubC("mock_c_compiler1", "mock_exec1", "suite")
+    mock_compiler2 = StubC("mock_c_compiler2", "mock_exec2", "suite")
+    print(mock_process.calls)
     tb.add_tool(mock_compiler1)
 
     warn_message = (f"Replacing existing tool '{mock_compiler1}' with "
                     f"'{mock_compiler2}'.")
-    with pytest.warns(UserWarning, match=warn_message):
+    with warns(UserWarning, match=warn_message):
         tb.add_tool(mock_compiler2)
 
     with warnings.catch_warnings():
@@ -61,14 +62,12 @@ def test_tool_box_add_tool_replacement():
         tb.add_tool(mock_compiler1, silent_replace=True)
 
 
-def test_tool_box_add_tool_not_avail():
+def test_tool_box_add_tool_not_avail(fake_process):
     '''Test that tools that are not available cannot be added to
     a tool box.'''
-
+    fake_process.register(['gfortran', '--version'], returncode=1)
     tb = ToolBox()
     gfortran = Gfortran()
-    # Mark this compiler to be not available:
-    with mock.patch.object(gfortran, "check_available", return_value=False):
-        with pytest.raises(RuntimeError) as err:
-            tb.add_tool(gfortran)
-        assert f"Tool '{gfortran}' is not available" in str(err.value)
+    with raises(RuntimeError) as err:
+        tb.add_tool(gfortran)
+    assert str(err.value) == f"Tool '{gfortran}' is not available."

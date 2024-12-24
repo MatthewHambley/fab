@@ -6,11 +6,12 @@
 
 '''Tests the ar implementation.
 '''
-
+from collections import deque
 from pathlib import Path
 from unittest import mock
 
-from fab.tools import Category, Ar
+from fab.category import Category
+from fab.tools.ar import Ar
 
 
 def test_ar_constructor():
@@ -18,34 +19,35 @@ def test_ar_constructor():
     ar = Ar()
     assert ar.category == Category.AR
     assert ar.name == "ar"
-    assert ar.exec_name == "ar"
+    assert ar.executable == Path("ar")
     assert ar.flags == []
 
 
-def test_ar_check_available():
+def test_ar_available(mock_process):
     '''Tests the is_available functionality.'''
     ar = Ar()
-    mock_result = mock.Mock(returncode=0)
-    with mock.patch('fab.tools.tool.subprocess.run',
-                    return_value=mock_result) as tool_run:
-        assert ar.check_available()
-    tool_run.assert_called_once_with(
-        ["ar", "--version"], capture_output=True, env=None,
-        cwd=None, check=False)
-
-    # Test behaviour if a runtime error happens:
-    with mock.patch("fab.tools.tool.Tool.run",
-                    side_effect=RuntimeError("")) as tool_run:
-        assert not ar.check_available()
+    assert ar.is_available is True
+    assert mock_process.calls == deque([['ar', '--version']])
 
 
-def test_ar_create():
+def test_ar_not_available(fake_process):
+    """
+    Tests failing availability check.
+    """
+    def failure(process):
+        process.returncode = 1
+        raise FileNotFoundError("Ar tool not found.")
+
+    test_unit = Ar()
+    fake_process.register(['ar', '--version'], callback=failure)
+    assert test_unit.is_available is False
+    assert fake_process.calls == deque([['ar', '--version']])
+
+
+def test_ar_create(mock_process):
     '''Test creating an archive.'''
     ar = Ar()
-    mock_result = mock.Mock(returncode=0)
-    with mock.patch('fab.tools.tool.subprocess.run',
-                    return_value=mock_result) as tool_run:
-        ar.create(Path("out.a"), [Path("a.o"), "b.o"])
-    tool_run.assert_called_with(['ar', 'cr', 'out.a', 'a.o', 'b.o'],
-                                capture_output=True, env=None, cwd=None,
-                                check=False)
+    ar.create(Path("out.a"), [Path("a.o"), "b.o"])
+    assert mock_process.calls == deque(
+        [['ar', 'cr', 'out.a', 'a.o', 'b.o']]
+    )

@@ -15,7 +15,8 @@ import pytest
 from fab.artefacts import ArtefactSet
 from fab.build_config import BuildConfig
 from fab.steps.archive_objects import archive_objects
-from fab.tools import Category, ToolBox
+from fab.category import Category
+from fab.tool_box import ToolBox
 
 
 class TestArchiveObjects:
@@ -89,7 +90,7 @@ class TestArchiveObjects:
         tool_box = config.tool_box
         cc = tool_box.get_tool(Category.C_COMPILER, config.mpi, config.openmp)
         # And set its category to C_COMPILER
-        cc._category = Category.AR
+        cc.__category = Category.AR
         # So overwrite the C compiler with the re-categories Fortran compiler
         tool_box.add_tool(cc)
 

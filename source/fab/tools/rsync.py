@@ -11,8 +11,8 @@ import os
 from pathlib import Path
 from typing import List, Union
 
-from fab.tools.category import Category
-from fab.tools.tool import Tool
+from fab.category import Category
+from fab.tools import Tool
 
 
 class Rsync(Tool):
@@ -22,15 +22,16 @@ class Rsync(Tool):
     def __init__(self):
         super().__init__("rsync", "rsync", Category.RSYNC)
 
-    def execute(self, src: Path,
-                dst: Path):
-        '''Execute an rsync command from src to dst. It supports
-        ~ expansion for src, and makes sure that `src` end with a `/`
-        so that rsync does not create a sub-directory.
+    def execute(self, src: Path, dst: Path):
+        """
+        Rsync from src to dst.
+
+        "~" expansion is supported for src and makes sure that `src` ends with
+        a `/` to avoid creating a sub-directory.
 
         :param src: the input path.
         :param dst: destination path.
-        '''
+        """
         src_str = os.path.expanduser(str(src))
         if not src_str.endswith('/'):
             src_str += '/'

@@ -16,7 +16,8 @@ from fab.artefacts import ArtefactSet
 from fab.build_config import BuildConfig
 from fab.steps import step
 from fab.util import log_or_dot
-from fab.tools import Ar, Category
+from fab.category import Category
+from fab.tools.ar import Ar
 from fab.artefacts import ArtefactsGetter, CollectionGetter
 
 logger = logging.getLogger(__name__)

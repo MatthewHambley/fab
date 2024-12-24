@@ -11,9 +11,9 @@ classes for gcc, gfortran, icc, ifort
 from pathlib import Path
 from typing import cast, List, Optional, Tuple, Union
 
-from fab.tools.category import Category
+from fab.category import Category
 from fab.tools.compiler import Compiler, FortranCompiler
-from fab.tools.flags import Flags
+from fab.flags import Flags
 
 
 class CompilerWrapper(Compiler):
@@ -23,21 +23,21 @@ class CompilerWrapper(Compiler):
     internally call e.g. gfortran, icc, ...)
 
     :param name: name of the wrapper.
-    :param exec_name: name of the executable to call.
+    :param executable: name of the executable to call.
     :param compiler: the compiler that is decorated.
     :param mpi: whether MPI is supported by this compiler or not.
     '''
 
-    def __init__(self, name: str, exec_name: str,
+    def __init__(self, name: str, executable: str,
                  compiler: Compiler,
                  mpi: bool = False):
         self._compiler = compiler
         super().__init__(
-            name=name, exec_name=exec_name,
+            name=name, executable=executable,
             category=self._compiler.category,
             suite=self._compiler.suite,
             mpi=mpi,
-            availability_option=self._compiler.availability_option)
+            availability_argument=self._compiler.availability_argument)
         # We need to have the right version to parse the version output
         # So we set this function based on the function that the
         # wrapped compiler uses:
@@ -69,8 +69,8 @@ class CompilerWrapper(Compiler):
         try:
             compiler_version = self._compiler.get_version()
         except RuntimeError as err:
-            raise RuntimeError(f"Cannot get version of wrapped compiler '"
-                               f"{self._compiler}") from err
+            raise RuntimeError(f"Cannot get version of wrapped compiler "
+                               f"'{self._compiler}'") from err
 
         wrapper_version = super().get_version()
         if compiler_version != wrapper_version:
@@ -93,7 +93,7 @@ class CompilerWrapper(Compiler):
     @property
     def flags(self) -> Flags:
         ''':returns: the flags to be used with this tool.'''
-        return Flags(self._compiler.flags + self._flags)
+        return Flags(self._compiler.flags + super().flags)
 
     @property
     def suite(self) -> str:
@@ -154,8 +154,8 @@ class CompilerWrapper(Compiler):
         # TODO #370: replace change_exec_name, and instead provide
         # a function that returns the whole command line, which can
         # then be modified here.
-        orig_compiler_name = self._compiler.exec_name
-        self._compiler.change_exec_name(self.exec_name)
+        orig_compiler_name = self._compiler.executable
+        self._compiler.change_exec_name(self.executable)
         if add_flags is None:
             add_flags = []
         if self._compiler.category is Category.FORTRAN_COMPILER:
@@ -191,7 +191,7 @@ class Mpif90(CompilerWrapper):
 
     def __init__(self, compiler: Compiler):
         super().__init__(name=f"mpif90-{compiler.name}",
-                         exec_name="mpif90", compiler=compiler, mpi=True)
+                         executable="mpif90", compiler=compiler, mpi=True)
 
 
 # ============================================================================
@@ -206,4 +206,4 @@ class Mpicc(CompilerWrapper):
 
     def __init__(self, compiler: Compiler):
         super().__init__(name=f"mpicc-{compiler.name}",
-                         exec_name="mpicc", compiler=compiler, mpi=True)
+                         executable="mpicc", compiler=compiler, mpi=True)

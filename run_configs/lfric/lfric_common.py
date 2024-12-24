@@ -20,7 +20,7 @@ class Script(Tool):
     :name: the path to the script to run.
     '''
     def __init__(self, name: Path):
-        super().__init__(name=name.name, exec_name=str(name),
+        super().__init__(name=name.name, executable=str(name),
                          category=Category.MISC)
 
     def check_available(self):

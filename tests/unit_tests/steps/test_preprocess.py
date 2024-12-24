@@ -10,7 +10,8 @@ import pytest
 
 from fab.build_config import BuildConfig
 from fab.steps.preprocess import preprocess_fortran
-from fab.tools import Category, ToolBox
+from fab.category import Category
+from fab.tool_box import ToolBox
 
 
 class Test_preprocess_fortran:
@@ -47,7 +48,7 @@ class Test_preprocess_fortran:
         # Take the C preprocessor
         cpp = tool_box[Category.C_PREPROCESSOR]
         # And set its category to FORTRAN_PREPROCESSOR
-        cpp._category = Category.FORTRAN_PREPROCESSOR
+        cpp.__category = Category.FORTRAN_PREPROCESSOR
         # Now overwrite the Fortran preprocessor with the re-categorised
         # C preprocessor:
         tool_box.add_tool(cpp, silent_replace=True)

@@ -10,8 +10,8 @@ from abc import ABC
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
-from fab.tools.category import Category
-from fab.tools.tool import Tool
+from fab.category import Category
+from fab.tools import Tool
 
 
 class Versioning(Tool, ABC):
@@ -19,17 +19,17 @@ class Versioning(Tool, ABC):
     Base class for versioning tools like Git and Subversion.
     """
     def __init__(self, name: str,
-                 exec_name: Union[str, Path],
+                 executable: Union[str, Path],
                  category: Category):
         """
         Constructor.
 
         :param name: Display name of this tool.
-        :param exec_name: Executable for this tool.
+        :param executable: Executable for this tool.
         :param category: Tool belongs to this category.
         """
-        super().__init__(name, exec_name, category,
-                         availability_option="help")
+        super().__init__(name, executable, category,
+                         availability_argument="help")
 
 
 # =============================================================================
@@ -118,7 +118,7 @@ class Subversion(Versioning):
     Interface to the Subversion version control system.
     """
     def __init__(self, name: Optional[str] = None,
-                 exec_name: Optional[Union[str, Path]] = None,
+                 executable: Optional[Union[str, Path]] = None,
                  category: Category = Category.SUBVERSION):
         """
         Constructor.
@@ -127,12 +127,12 @@ class Subversion(Versioning):
         executable are mutable.
 
         :param name: Tool name, defaults to "subversion."
-        :param exec_name: Tool executable, defaults to "svn."
+        :param executable: Tool executable, defaults to "svn."
         :param category: Tool category, defaults to SUBVERSION.
         """
         name = name or "Subversion"
-        exec_name = exec_name or "svn"
-        super().__init__(name, exec_name, category=category)
+        executable = executable or "svn"
+        super().__init__(name, executable, category=category)
 
     # pylint: disable-next=too-many-arguments
     def execute(self, pre_commands: Optional[List[str]] = None,
@@ -194,7 +194,7 @@ class Subversion(Versioning):
         :param dst: destination path.
         :param revision: revision to check out.
         '''
-        self.execute(['update'], revision, cwd=dst)
+        self.execute(['update'], revision, [str(dst)])
 
     def merge(self, src: Union[str, Path],
               dst: Union[str, Path],

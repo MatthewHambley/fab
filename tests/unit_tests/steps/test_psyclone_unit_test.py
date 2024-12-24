@@ -20,8 +20,7 @@ class TestGenPrebuildHash:
 
     """
     @pytest.fixture
-    def data(self, tmp_path, psyclone_lfric_api) -> Tuple[MpCommonArgs,
-                                                          Path, int]:
+    def data(self, tmp_path) -> Tuple[MpCommonArgs, Path, int]:
 
         x90_file = Path('foo.x90')
         analysed_x90 = {
@@ -47,7 +46,7 @@ class TestGenPrebuildHash:
             config=None,  # type: ignore[arg-type]
             kernel_roots=[],
             transformation_script=mock_transformation_script,
-            api=psyclone_lfric_api,
+            api='lfric',
             overrides_folder=None,
             override_files=None,  # type: ignore[arg-type]
         )
