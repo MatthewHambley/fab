@@ -84,7 +84,6 @@ class TestArchiveObjects:
     def test_incorrect_tool(self, tool_box):
         '''Test that an incorrect archive tool is detected
         '''
-
         config = BuildConfig('proj', tool_box)
         cc = tool_box.get_tool(Category.C_COMPILER, config.mpi, config.openmp)
         # And set its category to be AR
