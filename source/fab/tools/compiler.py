@@ -87,7 +87,7 @@ class Compiler(CompilerSuiteTool):
     def compile_file(self, input_file: Path,
                      output_file: Path,
                      openmp: bool,
-                     add_flags: Union[None, List[str]] = None):
+                     add_flags: Union[None, List[str]] = None) -> Optional[str]:
         '''Compiles a file. It will add the flag for compilation-only
         automatically, as well as the output directives. The current working
         directory for the command is set to the folder where the source file

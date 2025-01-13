@@ -10,6 +10,8 @@ from collections import deque
 from pathlib import Path
 from unittest import mock
 
+from pytest_subprocess.fake_process import FakeProcess, ProcessRecorder
+
 from fab.category import Category
 from fab.tools.ar import Ar
 
@@ -23,14 +25,15 @@ def test_ar_constructor():
     assert ar.flags == []
 
 
-def test_ar_available(mock_process):
+def test_ar_available(mock_process: ProcessRecorder):
     '''Tests the is_available functionality.'''
     ar = Ar()
     assert ar.is_available is True
-    assert mock_process.calls == deque([['ar', '--version']])
+    assert [call.args for call in mock_process.calls] \
+           == [['ar', '--version']]
 
 
-def test_ar_not_available(fake_process):
+def test_ar_not_available(fake_process: FakeProcess):
     """
     Tests failing availability check.
     """
@@ -44,10 +47,9 @@ def test_ar_not_available(fake_process):
     assert fake_process.calls == deque([['ar', '--version']])
 
 
-def test_ar_create(mock_process):
+def test_ar_create(mock_process: ProcessRecorder):
     '''Test creating an archive.'''
     ar = Ar()
     ar.create(Path("out.a"), [Path("a.o"), "b.o"])
-    assert mock_process.calls == deque(
-        [['ar', 'cr', 'out.a', 'a.o', 'b.o']]
-    )
+    assert [call.args for call in mock_process.calls] \
+        == [['ar', 'cr', 'out.a', 'a.o', 'b.o']]

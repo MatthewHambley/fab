@@ -5,7 +5,9 @@
 ##############################################################################
 from pathlib import Path
 from types import SimpleNamespace
-from unittest import mock
+
+from pytest import mark
+from pytest_subprocess.fake_process import FakeProcess
 
 from fab.steps.grab.fcm import fcm_export
 from fab.steps.grab.folder import grab_folder
@@ -15,65 +17,56 @@ import pytest
 
 
 class TestGrabFolder:
-
-    def test_trailing_slash(self):
-        with pytest.warns(UserWarning, match="_metric_send_conn not set, cannot send metrics"):
-            self._common(grab_src='/grab/source/', expect_grab_src='/grab/source/')
-
-    def test_no_trailing_slash(self):
-        with pytest.warns(UserWarning, match="_metric_send_conn not set, cannot send metrics"):
-            self._common(grab_src='/grab/source', expect_grab_src='/grab/source/')
-
-    def _common(self, grab_src, expect_grab_src):
-        source_root = Path('/workspace/source')
-        dst = 'bar'
-
+    @mark.parametrize(['grab_src', 'expected_grab_src'],
+                      [('/grab/source/', '/grab/source/'),
+                       ('/grab/source', '/grab/source/')])
+    def test_folder_grabber(self, grab_src, expected_grab_src,
+                            tmp_path: Path, fake_process: FakeProcess):
+        source_root = tmp_path / 'source'
         mock_config = SimpleNamespace(source_root=source_root,
                                       tool_box=ToolBox())
-        with mock.patch('pathlib.Path.mkdir'):
-            with mock.patch('fab.tools.tool.Tool.run') as mock_run:
-                grab_folder(mock_config, src=grab_src, dst_label=dst)
 
-        expect_dst = mock_config.source_root / dst
-        mock_run.assert_called_once_with(
-            additional_parameters=['--times', '--links', '--stats',
-                                   '-ru', expect_grab_src, expect_dst])
+        expected_call = ['rsync', '--times', '--links', '--stats',
+                         '-ru', expected_grab_src, str(source_root / 'bar')]
+        record = fake_process.register(expected_call)
+        with pytest.warns(UserWarning,
+                          match="_metric_send_conn not set, cannot send metrics"):
+            grab_folder(mock_config, src=grab_src, dst_label='bar')
+        assert record.call_count(expected_call) == 1
 
 
 class TestGrabFcm:
 
-    def test_no_revision(self):
-        source_root = Path('/workspace/source')
-        source_url = '/www.example.com/bar'
-        dst_label = 'bar'
+    def test_no_revision(self, fake_process: FakeProcess, tmp_path: Path):
+        source_root = tmp_path / 'source'
 
         mock_config = SimpleNamespace(source_root=source_root,
                                       tool_box=ToolBox())
-        with mock.patch('pathlib.Path.mkdir'):
-            with mock.patch('fab.tools.tool.Tool.run') as mock_run, \
-                 pytest.warns(UserWarning, match="_metric_send_conn not set, cannot send metrics"):
-                fcm_export(config=mock_config, src=source_url, dst_label=dst_label)
 
-        mock_run.assert_called_once_with(['export', '--force', source_url,
-                                          str(source_root / dst_label)],
-                                         env=None, cwd=None, capture_output=True)
+        expected_call = ['fcm', 'export', '--force',
+                         '/www.example.com/bar', str(source_root / 'bar')]
+        record = fake_process.register(expected_call)
+        with pytest.warns(UserWarning,
+                          match="_metric_send_conn not set, cannot send metrics"):
+            fcm_export(config=mock_config, src='/www.example.com/bar', dst_label='bar')
+        assert record.call_count(expected_call) == 1
 
-    def test_revision(self):
-        source_root = Path('/workspace/source')
-        source_url = '/www.example.com/bar'
-        dst_label = 'bar'
-        revision = '42'
+    def test_revision(self, fake_process: FakeProcess, tmp_path: Path):
+        source_root = tmp_path / 'source'
 
         mock_config = SimpleNamespace(source_root=source_root,
                                       tool_box=ToolBox())
-        with mock.patch('pathlib.Path.mkdir'):
-            with mock.patch('fab.tools.tool.Tool.run') as mock_run, \
-                 pytest.warns(UserWarning, match="_metric_send_conn not set, cannot send metrics"):
-                fcm_export(mock_config, src=source_url, dst_label=dst_label, revision=revision)
 
-        mock_run.assert_called_once_with(
-            ['export', '--force', '--revision', '42', f'{source_url}', str(source_root / dst_label)],
-            env=None, cwd=None, capture_output=True)
+        expected_call = ['fcm', 'export', '--force',
+                         '--revision', '42',
+                         '/www.example.com/bar', str(source_root / 'bar')]
+        record = fake_process.register(expected_call)
+        with pytest.warns(UserWarning,
+                          match="_metric_send_conn not set, cannot send metrics"):
+            fcm_export(mock_config, src='/www.example.com/bar',
+                       dst_label='bar', revision=42)
+
+        assert record.call_count(expected_call) == 1
 
     # todo: test missing repo
     # def test_missing(self):

@@ -10,7 +10,7 @@ from collections import deque
 from pathlib import Path
 
 from pytest_subprocess.fake_popen import FakePopen
-from pytest_subprocess.fake_process import FakeProcess
+from pytest_subprocess.fake_process import FakeProcess, ProcessRecorder
 
 from fab.category import Category
 from fab.tools.rsync import Rsync
@@ -25,11 +25,12 @@ def test_ar_constructor():
     assert rsync.flags == []
 
 
-def test_rsync_is_available(mock_process):
+def test_rsync_is_available(mock_process: ProcessRecorder):
     '''Tests the is_available functionality.'''
     rsync = Rsync()
     assert rsync.is_available is True
-    assert mock_process.calls == deque([['rsync', '--version']])
+    assert [call.args for call in mock_process.calls] \
+           == [['rsync', '--version']]
 
 
 def test_rsync_is_not_avaiolable(fake_process: FakeProcess):
@@ -45,19 +46,21 @@ def test_rsync_is_not_avaiolable(fake_process: FakeProcess):
     assert test_unit.is_available is False
 
 
-def test_rsync_create_source_directory(mock_process):
+def test_rsync_create_source_directory(mock_process: ProcessRecorder):
     """
     Tests rsync with source ending with '/'.
     """
     rsync = Rsync()
     rsync.execute(src="/src/", dst="/dst")
-    assert mock_process.calls == deque([['rsync', '--times', '--links', '--stats', '-ru', '/src/', '/dst']])
+    assert [call.args for call in mock_process.calls] \
+           == [['rsync', '--times', '--links', '--stats', '-ru', '/src/', '/dst']]
 
 
-def test_rsync_create_source_file(mock_process):
+def test_rsync_create_source_file(mock_process: ProcessRecorder):
     """
     Tests rsync when source does not end with '/'.
     """
     test_unit = Rsync()
     test_unit.execute(src="/src", dst="/dst")
-    assert mock_process.calls == deque([['rsync', '--times', '--links', '--stats', '-ru', '/src/', '/dst']])
+    assert [call.args for call in mock_process.calls] \
+           == [['rsync', '--times', '--links', '--stats', '-ru', '/src/', '/dst']]

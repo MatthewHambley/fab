@@ -20,7 +20,7 @@ class TestGenPrebuildHash:
 
     """
     @pytest.fixture
-    def data(self, tmp_path) -> Tuple[MpCommonArgs, Path, int]:
+    def data(self, tmp_path: Path) -> Tuple[MpCommonArgs, Path, Path]:
 
         x90_file = Path('foo.x90')
         analysed_x90 = {
@@ -35,54 +35,54 @@ class TestGenPrebuildHash:
             'kernel2': 456,
         }
 
-        # the script is just hashed later, so any one will do - use this file!
-        mock_transformation_script = mock.Mock(return_value=__file__)
+        # the script is just hashed later, so anything will do
+        dummy_script = tmp_path / 'dummy.py'
+        dummy_script.write_text("# An empty script")
 
-        expect_hash = 3962584109 + file_checksum(__file__).file_hash  # add the transformation_script_hash
         mp_payload = MpCommonArgs(
             analysed_x90=analysed_x90,
             all_kernel_hashes=all_kernel_hashes,
             cli_args=[],
             config=None,  # type: ignore[arg-type]
             kernel_roots=[],
-            transformation_script=mock_transformation_script,
+            transformation_script=lambda x, y:dummy_script,
             api='lfric',
             overrides_folder=None,
             override_files=None,  # type: ignore[arg-type]
         )
-        return mp_payload, x90_file, expect_hash
+        return mp_payload, x90_file, dummy_script
 
     def test_vanilla(self, data):
-        mp_payload, x90_file, expect_hash = data
+        mp_payload, x90_file, _ = data
         result = _gen_prebuild_hash(x90_file=x90_file, mp_payload=mp_payload)
-        assert result == expect_hash
+        assert result == 5472577951
 
     def test_file_hash(self, data):
         # changing the file hash should change the hash
-        mp_payload, x90_file, expect_hash = data
+        mp_payload, x90_file, _ = data
         mp_payload.analysed_x90[x90_file]._file_hash += 1
         result = _gen_prebuild_hash(x90_file=x90_file, mp_payload=mp_payload)
-        assert result == expect_hash + 1
+        assert result == 5472577952
 
     def test_kernal_deps(self, data):
         # changing a kernel deps hash should change the hash
-        mp_payload, x90_file, expect_hash = data
+        mp_payload, x90_file, _ = data
         mp_payload.all_kernel_hashes['kernel1'] += 1
         result = _gen_prebuild_hash(x90_file=x90_file, mp_payload=mp_payload)
-        assert result == expect_hash + 1
+        assert result == 5472577952
 
     def test_trans_script(self, data):
         # changing the transformation script should change the hash
-        mp_payload, x90_file, expect_hash = data
+        mp_payload, x90_file, script = data
         mp_payload.transformation_script = None
         with pytest.warns(UserWarning, match="no transformation script specified"):
             result = _gen_prebuild_hash(x90_file=x90_file, mp_payload=mp_payload)
         # transformation_script_hash = 0
-        assert result == expect_hash - file_checksum(__file__).file_hash
+        assert result == 5472577951 - file_checksum(script).file_hash
 
     def test_api(self, data):
         # changing PSyclone's API should change the hash
-        mp_payload, x90_file, expect_hash = data
+        mp_payload, x90_file, _ = data
         old_hash = string_checksum(mp_payload.api)
         # Change the API by appending "_new"
         mp_payload.api = mp_payload.api + "_new"
@@ -91,14 +91,14 @@ class TestGenPrebuildHash:
         new_hash = string_checksum(mp_payload.api)
         # Make sure we really changed the
         assert new_hash != old_hash
-        assert result == expect_hash - old_hash + new_hash
+        assert result == 5472577951 - old_hash + new_hash
 
     def test_cli_args(self, data):
         # changing the cli args should change the hash
-        mp_payload, x90_file, expect_hash = data
+        mp_payload, x90_file, _ = data
         mp_payload.cli_args = ['--foo']
         result = _gen_prebuild_hash(x90_file=x90_file, mp_payload=mp_payload)
-        assert result != expect_hash
+        assert result != 5472577951
 
 
 class TestCheckOverride:

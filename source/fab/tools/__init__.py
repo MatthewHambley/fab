@@ -169,8 +169,12 @@ class Tool:
                                f"'{command}'.")
         getLogger(__name__).debug(f'run_command: {" ".join(command)}')
         try:
+            if cwd is not None:
+                cwd_arg = str(cwd)
+            else:
+                cwd_arg = cwd
             res = run(command, capture_output=True,
-                      env=env, cwd=cwd, check=False)
+                      env=env, cwd=cwd_arg, check=False)
         except FileNotFoundError as err:
             raise RuntimeError(f"Command '{' '.join(command)}' could not be "
                                f"executed.") from err

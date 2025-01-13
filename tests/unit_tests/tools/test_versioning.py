@@ -16,7 +16,7 @@ from time import sleep
 from typing import List, Tuple
 
 from pytest import TempPathFactory, fixture, mark, raises
-from pytest_subprocess.fake_process import FakeProcess
+from pytest_subprocess.fake_process import FakeProcess, ProcessRecorder
 
 from fab.category import Category
 from fab.tools.versioning import Fcm, Git, Subversion
@@ -32,7 +32,7 @@ class TestGit:
         assert git.category == Category.GIT
         assert git.flags == []
 
-    def test_git_available(self, mock_process: FakeProcess):
+    def test_git_available(self, mock_process: ProcessRecorder):
         """
         Tests Git availability.
 
@@ -41,7 +41,8 @@ class TestGit:
         """
         git = Git()
         assert git.is_available is True
-        assert mock_process.calls == deque([['git', 'help']])
+        assert [call.args for call in mock_process.calls] \
+               == [['git', 'help']]
 
     def test_git_unavailable(self, fake_process: FakeProcess):
         """
@@ -63,12 +64,12 @@ class TestGit:
         when actually shelling out to a subprocess happens in system testing.
         """
         git = Git()
-        fake_process.register(['git', 'log', '--oneline', '-n', '1'], stdout='abc\ndef')
+        recorder = fake_process.register(['git', 'log', '--oneline', '-n', '1'],
+                                         stdout='abc\ndef')
         assert "abc" == git.current_commit()
         assert fake_process.calls \
                == deque([['git', 'log', '--oneline', '-n', '1']])
-        # Todo: Need to check that cwd was correctly set to something. See
-        #       https://github.com/aklajnert/pytest-subprocess/issues/177
+        assert recorder.calls[0].kwargs['cwd'] == '.'
 
     def test_git_current_commit_path(self, fake_process: FakeProcess):
         """
@@ -78,14 +79,14 @@ class TestGit:
         when actually shelling out to a subprocess happens in system testing.
         """
         git = Git()
-        fake_process.register(['git', 'log', '--oneline', '-n', '1'], stdout='abc\ndef')
+        recorder = fake_process.register(['git', 'log', '--oneline', '-n', '1'],
+                                         stdout='abc\ndef')
         assert "abc" == git.current_commit("/not-exist")
         assert fake_process.calls \
                == deque([['git', 'log', '--oneline', '-n', '1']])
-        # Todo: Need to check that cwd was correctly set to /not-exist. See
-        #       https://github.com/aklajnert/pytest-subprocess/issues/177
+        assert recorder.calls[0].kwargs['cwd'] == '/not-exist'
 
-    def test_git_init(self, mock_process: FakeProcess):
+    def test_git_init(self, mock_process: ProcessRecorder):
         """
         Tests Git initialisation functionality.
 
@@ -94,11 +95,11 @@ class TestGit:
         """
         git = Git()
         git.init("/src")
-        assert mock_process.calls == deque([['git', 'init', '.']])
-        # Todo: Need to check that cwd was correctly set to /src. See
-        #       https://github.com/aklajnert/pytest-subprocess/issues/177
+        assert [call.args for call in mock_process.calls] \
+            == [['git', 'init', '.']]
+        assert mock_process.calls[0].kwargs['cwd'] == '/src'
 
-    def test_git_clean(self, mock_process: FakeProcess):
+    def test_git_clean(self, mock_process: ProcessRecorder):
         """
         Tests Git clean functionality.
 
@@ -107,11 +108,11 @@ class TestGit:
         """
         git = Git()
         git.clean('/src')
-        assert mock_process.calls == deque([['git', 'clean', '-f']])
-        # Todo: Need to check that cwd was correctly set to /src. See
-        #       https://github.com/aklajnert/pytest-subprocess/issues/177
+        assert [call.args for call in mock_process.calls] \
+               == [['git', 'clean', '-f']]
+        assert mock_process.calls[0].kwargs['cwd'] == '/src'
 
-    def test_git_fetch(self, mock_process: FakeProcess):
+    def test_git_fetch(self, mock_process: ProcessRecorder):
         """
         Tests Git fetch functionality.
 
@@ -120,11 +121,11 @@ class TestGit:
         """
         git = Git()
         git.fetch("/src", "/dst", revision="revision")
-        assert mock_process.calls == deque([['git', 'fetch', '/src', 'revision']])
-        # Todo: Need to check that cwd was correctly set to /dst. See
-        #       https://github.com/aklajnert/pytest-subprocess/issues/177
+        assert [call.args for call in mock_process.calls] \
+               == [['git', 'fetch', '/src', 'revision']]
+        assert mock_process.calls[0].kwargs['cwd'] == '/dst'
 
-    def test_git_checkout(self, mock_process: FakeProcess):
+    def test_git_checkout(self, mock_process: ProcessRecorder):
         """
         Tests Git branch check-out functionality.
 
@@ -133,16 +134,14 @@ class TestGit:
         """
         git = Git()
         git.checkout("/src", "/dst", revision="revision")
-        assert mock_process.calls == deque(
-            [
-                ['git', 'fetch', '/src', 'revision'],
-                ['git', 'checkout', 'FETCH_HEAD']
-            ]
-        )
-        # Todo: Need to check that cwd was correctly set to /dst. See
-        #       https://github.com/aklajnert/pytest-subprocess/issues/177
+        assert [call.args for call in mock_process.calls] \
+               == [
+                    ['git', 'fetch', '/src', 'revision'],
+                    ['git', 'checkout', 'FETCH_HEAD']
+                  ]
+        assert mock_process.calls[0].kwargs['cwd'] == '/dst'
 
-    def test_git_merge(self, mock_process: FakeProcess):
+    def test_git_merge(self, mock_process: ProcessRecorder):
         """
         Tests Git merge functionality.
 
@@ -151,9 +150,9 @@ class TestGit:
         """
         git = Git()
         git.merge("/dst", revision="revision")
-        assert mock_process.calls == deque([['git', 'merge', 'FETCH_HEAD']])
-        # Todo: Need to check that cwd was correctly set to /dst. See
-        #       https://github.com/aklajnert/pytest-subprocess/issues/177
+        assert [call.args for call in mock_process.calls] \
+               == [['git', 'merge', 'FETCH_HEAD']]
+        assert mock_process.calls[0].kwargs['cwd'] == '/dst'
 
     def test_git_merge_fail(self, fake_process: FakeProcess):
         """
@@ -215,7 +214,7 @@ class TestSubversion:
         assert svn.name == "Subversion"
         assert svn.executable == Path("svn")
 
-    def test_svn_export_revision(self, mock_process):
+    def test_svn_export_revision(self, mock_process: ProcessRecorder):
         """
         Tests Subversion source tree export functionality.
 
@@ -224,11 +223,10 @@ class TestSubversion:
         """
         svn = Subversion()
         svn.export("/src", "/dst", revision="123")
-        assert mock_process.calls == deque([['svn', 'export', '--force',
-                                             '--revision', '123',
-                                             '/src', '/dst']])
+        assert [call.args for call in mock_process.calls] \
+               == [['svn', 'export', '--force','--revision', '123', '/src', '/dst']]
 
-    def test_svn_export_head(self, mock_process):
+    def test_svn_export_head(self, mock_process: ProcessRecorder):
         """
         Tests Subversion source tree export functionality.
 
@@ -237,10 +235,11 @@ class TestSubversion:
         """
         svn = Subversion()
         svn.export("/src", "/dst")
-        assert mock_process.calls == deque([['svn', 'export', '--force',
-                                             '/src', '/dst']])
+        assert [call.args for call in mock_process.calls] \
+               == [['svn', 'export', '--force', '/src', '/dst']]
+        assert mock_process.calls[0].kwargs['cwd'] is None
 
-    def test_svn_checkout_revision(self, mock_process):
+    def test_svn_checkout_revision(self, mock_process: ProcessRecorder):
         """
         Tests Subversion working copy check-out functionality.
 
@@ -249,11 +248,11 @@ class TestSubversion:
         """
         svn = Subversion()
         svn.checkout("/src", "/dst", revision="123")
-        assert mock_process.calls == deque([['svn', 'checkout',
-                                             '--revision', '123',
-                                             '/src', '/dst']])
+        assert [call.args for call in mock_process.calls] \
+            == [['svn', 'checkout', '--revision', '123', '/src', '/dst']]
+        assert mock_process.calls[0].kwargs['cwd'] is None
 
-    def test_svn_checkout_head(self, mock_process):
+    def test_svn_checkout_head(self, mock_process: ProcessRecorder):
         """
         Tests Subversion working copy check-out functionality.
 
@@ -262,10 +261,11 @@ class TestSubversion:
         """
         svn = Subversion()
         svn.checkout("/src", "/dst")
-        assert mock_process.calls == deque([['svn', 'checkout',
-                                             '/src', '/dst']])
+        assert [call.args for call in mock_process.calls] \
+               == [['svn', 'checkout', '/src', '/dst']]
+        assert mock_process.calls[0].kwargs['cwd'] is None
 
-    def test_svn_update(self, mock_process):
+    def test_svn_update(self, mock_process: ProcessRecorder):
         """
         Tests Subversion working copy update functionality.
 
@@ -274,10 +274,11 @@ class TestSubversion:
         """
         svn = Subversion()
         svn.update("/dst", revision="123")
-        assert mock_process.calls == deque([['svn', 'update',
-                                             '--revision', '123', '/dst']])
+        assert [call.args for call in mock_process.calls] \
+               == [['svn', 'update', '--revision', '123', '/dst']]
+        assert mock_process.calls[0].kwargs['cwd'] is None
 
-    def test_svn_merge(self, mock_process):
+    def test_svn_merge(self, mock_process: ProcessRecorder):
         """
         Tests Subversion merge functionality.
 
@@ -286,10 +287,9 @@ class TestSubversion:
         """
         svn = Subversion()
         svn.merge("/src", "/dst", "123")
-        assert mock_process.calls == deque([['svn', 'merge',
-                                             '--non-interactive', '/src@123']])
-        # Todo: Need to check that cwd was correctly set to /dst. See
-        #       https://github.com/aklajnert/pytest-subprocess/issues/177
+        assert [call.args for call in mock_process.calls] \
+               == [['svn', 'merge', '--non-interactive', '/src@123']]
+        assert mock_process.calls[0].kwargs['cwd'] == '/dst'
 
 
 def _tree_compare(first: Path, second: Path) -> None:
@@ -344,7 +344,8 @@ class TestSubversionReal:
         Checks that a source tree can be extracted from a Subversion
         repository accessed through its own protocol.
         """
-        command: List[str] = ['svnserve', '-r', str(repo[0]), '-X']
+        command: List[str] = ['svnserve', '--listen-host=localhost',
+                              '-r', str(repo[0]), '-X']
         process = Popen(command)
 
         test_unit = Subversion()

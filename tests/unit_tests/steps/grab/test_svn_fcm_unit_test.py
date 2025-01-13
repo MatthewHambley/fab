@@ -10,7 +10,7 @@ from fab.steps.grab.svn import _get_revision
 import pytest
 
 
-class TestRevision(object):
+class TestRevision:
     # test the handling of the revision in the base class
 
     def test_no_revision(self):

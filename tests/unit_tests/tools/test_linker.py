@@ -10,6 +10,7 @@ from collections import deque
 from pathlib import Path
 
 from pytest import raises
+from pytest_subprocess.fake_process import FakeProcess, ProcessRecorder
 
 from fab.category import Category
 from fab.tools.linker import Linker
@@ -65,25 +66,28 @@ def test_costructor_missing():
             "creating Linker."
 
 
-def test_is_available_compiler(stub_c_compiler, mock_process):
+def test_is_available_compiler(stub_c_compiler,
+                               fake_process: FakeProcess):
     """
     Tests availability against a compiler.
     """
+    recorder = fake_process.register(['stubc', '--version'],
+                                     stdout='1.2.3')
     linker = Linker(compiler=stub_c_compiler)
     assert linker.is_available is True
-    assert mock_process.calls == deque([['stubc', '--version']])
 
 
-def test_is_available_executable(mock_process):
+def test_is_available_executable(mock_process: ProcessRecorder):
     """
     Tests availability against executable.
     """
     linker = Linker("ld", Path("ld"), suite="gnu")
     assert linker.is_available is True
-    assert mock_process.calls == deque([['ld', '--version']])
+    assert [call.args for call in mock_process.calls] \
+           == [['ld', '--version']]
 
 
-def test_is_not_available(fake_process):
+def test_is_not_available(fake_process: FakeProcess):
     """
     Test availability when executable not found.
     """
@@ -93,27 +97,27 @@ def test_is_not_available(fake_process):
     assert fake_process.calls == deque([['ld', '--version']])
 
 
-def test_linker_c(stub_c_compiler, mock_process):
+def test_linker_c(stub_c_compiler, mock_process: ProcessRecorder):
     '''Test the link command line when no additional libraries are
     specified.'''
     linker = Linker(compiler=stub_c_compiler)
     linker.link([Path("a.o")], Path("a.out"), openmp=False)
-    assert mock_process.calls == deque(
-        [["stubc", 'a.o', '-o', 'a.out']]
-    )
+    assert [call.args for call in mock_process.calls] \
+        == [["stubc", 'a.o', '-o', 'a.out']]
 
 
-def test_linker_c_with_libraries(stub_c_compiler, mock_process):
+def test_linker_c_with_libraries(stub_c_compiler,
+                                 mock_process: ProcessRecorder):
     '''Test the link command line when additional libraries are specified.'''
     linker = Linker(compiler=stub_c_compiler)
     linker.link([Path("a.o")], Path("a.out"), add_libs=["-L", "/tmp"],
                 openmp=True)
-    assert mock_process.calls == deque(
-        [['stubc', '-openmpme', 'a.o', '-L', '/tmp', '-o', 'a.out']]
-    )
+    assert [call.args for call in mock_process.calls] \
+        == [['stubc', '-openmpme', 'a.o', '-L', '/tmp', '-o', 'a.out']]
 
 
-def test_compiler_linker_add_compiler_flag(stub_c_compiler, mock_process):
+def test_compiler_linker_add_compiler_flag(stub_c_compiler,
+                                           mock_process: ProcessRecorder):
     '''Test that a flag added to the compiler will be automatically
     added to the link line (even if the flags are modified after
     creating the linker ... in case that the user specifies additional
@@ -122,18 +126,16 @@ def test_compiler_linker_add_compiler_flag(stub_c_compiler, mock_process):
     linker = Linker(compiler=stub_c_compiler)
     stub_c_compiler.flags.append("-my-flag")
     linker.link([Path("a.o")], Path("a.out"), openmp=False)
-    assert mock_process.calls == deque(
-        [['stubc', '-my-flag', 'a.o', '-o', 'a.out']]
-    )
+    assert [call.args for call in mock_process.calls] \
+        == [['stubc', '-my-flag', 'a.o', '-o', 'a.out']]
 
 
-def test_linker_add_compiler_flag(mock_process):
+def test_linker_add_compiler_flag(mock_process: ProcessRecorder):
     """
     Ensure linker works when compiler is not specified.
     """
     linker = Linker("no-compiler", "no-compiler.exe", "suite")
     linker.flags.append("-some-other-flag")
     linker.link([Path("a.o")], Path("a.out"), openmp=False)
-    assert mock_process.calls == deque(
-        [['no-compiler.exe', '-some-other-flag', 'a.o', '-o', 'a.out']]
-    )
+    assert [call.args for call in mock_process.calls] \
+        == [['no-compiler.exe', '-some-other-flag', 'a.o', '-o', 'a.out']]

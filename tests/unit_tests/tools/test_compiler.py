@@ -13,6 +13,7 @@ from textwrap import dedent
 from unittest import mock
 
 from pytest import mark, raises, warns
+from pytest_subprocess.fake_process import FakeProcess, ProcessRecorder
 
 from fab.category import Category
 from fab.tools.compiler import Compiler, CCompiler, FortranCompiler, Gcc, Gfortran, Icc, Ifort
@@ -216,7 +217,7 @@ def test_compiler_module_output():
                                                      'a.f90', '-o', 'a.o'])
 
 
-def test_compiler_with_add_args(mock_process):
+def test_compiler_with_add_args(mock_process: ProcessRecorder):
     '''Tests that additional arguments are handled as expected.'''
     fc = FortranCompiler("gfortran", "gfortran", suite="gnu",
                          openmp_flag="-fopenmp",
@@ -227,9 +228,9 @@ def test_compiler_with_add_args(mock_process):
         fc.compile_file(Path("a.f90"), "a.o", add_flags=["-J/b", "-O3"],
                         openmp=False, syntax_only=True)
     # Notice that "-J/b" has been removed
-    assert mock_process.calls == deque(
-        [['gfortran', '-c', "-O3", '-J', '/module_out', 'a.f90', '-o', 'a.o']]
-    )
+    assert [call.args for call in mock_process.calls] \
+        == [['gfortran', '-c', "-O3", '-J', '/module_out', 'a.f90', '-o', 'a.o']]
+
     with warns(UserWarning,
                match="explicitly provided. OpenMP should be enabled in "
                      "the BuildConfiguration"):

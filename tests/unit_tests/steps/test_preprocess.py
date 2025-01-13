@@ -6,8 +6,6 @@
 from pathlib import Path
 from unittest import mock
 
-import pytest
-
 from fab.build_config import BuildConfig
 from fab.steps.preprocess import preprocess_fortran
 from fab.category import Category
@@ -15,46 +13,33 @@ from fab.tool_box import ToolBox
 
 
 class Test_preprocess_fortran:
+    def test_little_f90(self, tmp_path: Path, monkeypatch):
+        """
+        Ensures little f90 files are copied.
+        """
+        config = BuildConfig('proj', ToolBox(), fab_workspace=tmp_path)
+        config.source_root.mkdir(parents=True)
+        little_f90 = Path(config.source_root / 'little.f90')
+        little_f90.write_text("#define BEEF")
 
-    def test_big_little(self, tmp_path):
-        # ensure big F90s are preprocessed and little f90s are copied
+        with config:
+            preprocess_fortran(config, lambda s: [little_f90])
 
+        assert (config.build_output / 'little.f90').read_text() \
+            == "#define BEEF"  # No preprocessing.
+
+    def test_big_F90(self, tmp_path: Path, monkeypatch):
+        """
+        Ensures big F90 files are preprocessed.
+        """
         config = BuildConfig('proj', ToolBox(), fab_workspace=tmp_path)
         big_f90 = Path(config.source_root / 'big.F90')
-        little_f90 = Path(config.source_root / 'little.f90')
+        little_f90 = config.source_root / 'big.f90'
 
-        def source_getter(artefact_store):
-            return [big_f90, little_f90]
-
-        with mock.patch('fab.steps.preprocess.pre_processor') as mock_pp:
-            with mock.patch('shutil.copyfile') as mock_copy:
-                with config:
-                    preprocess_fortran(config=config, source=source_getter)
-
-        mock_pp.assert_called_once_with(
-            config,
-            preprocessor=mock.ANY,
-            common_flags=mock.ANY,
-            files=[big_f90],
-            output_collection=mock.ANY,
-            output_suffix='.f90',
-            name='preprocess fortran',
-        )
-
-        mock_copy.assert_called_once_with(str(little_f90), mock.ANY)
-
-        # Now test that an incorrect preprocessor is detected:
-        tool_box = config.tool_box
-        # Take the C preprocessor
-        cpp = tool_box[Category.C_PREPROCESSOR]
-        # And set its category to FORTRAN_PREPROCESSOR
-        cpp.__category = Category.FORTRAN_PREPROCESSOR
-        # Now overwrite the Fortran preprocessor with the re-categorised
-        # C preprocessor:
-        tool_box.add_tool(cpp, silent_replace=True)
-
-        with pytest.raises(RuntimeError) as err:
-            preprocess_fortran(config=config)
-        assert ("Unexpected tool 'cpp' of type '<class "
-                "'fab.tools.preprocessor.Cpp'>' instead of CppFortran"
-                in str(err.value))
+        def my_preprocess(*args, **kwargs):
+            assert args[1] == big_f90
+            assert kwargs == {}
+        monkeypatch.setattr('fab.steps.preprocess.Preprocessor.preprocess',
+                            my_preprocess)
+        with config:
+            preprocess_fortran(config, lambda s: [big_f90])

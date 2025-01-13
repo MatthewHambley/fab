@@ -10,6 +10,7 @@ from unittest import mock
 import warnings
 
 from pytest import raises, warns
+from pytest_subprocess.fake_process import FakeProcess, ProcessRecorder
 
 from fab.category import Category
 from fab.tools.compiler import CCompiler, Gfortran
@@ -17,6 +18,7 @@ from fab.tool_box import ToolBox
 from fab.tool_repository import ToolRepository
 
 from ..conftest import StubC
+
 
 def test_tool_box_constructor():
     '''Tests the ToolBox constructor.'''
@@ -43,13 +45,14 @@ def test_tool_box_get_tool():
     assert gfortran is tr_gfortran
 
 
-def test_tool_box_add_tool_replacement(mock_process):
+def test_tool_box_add_tool_replacement(fake_process: FakeProcess):
     '''Test that replacing a tool raises a warning, and that this
     warning can be disabled.'''
+    fake_process.register(['mock_exec1', '--version'], stdout='1.2.3')
+    fake_process.register(['mock_exec2', '--version'], stdout='4.5.6')
     tb = ToolBox()
     mock_compiler1 = StubC("mock_c_compiler1", "mock_exec1", "suite")
     mock_compiler2 = StubC("mock_c_compiler2", "mock_exec2", "suite")
-    print(mock_process.calls)
     tb.add_tool(mock_compiler1)
 
     warn_message = (f"Replacing existing tool '{mock_compiler1}' with "

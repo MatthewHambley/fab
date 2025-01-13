@@ -11,6 +11,7 @@ from pathlib import Path
 from unittest.mock import Mock
 
 from pytest import fixture
+from pytest_subprocess.fake_process import FakeProcess, ProcessRecorder
 
 from fab.category import Category
 from fab.tool_box import ToolBox
@@ -36,16 +37,17 @@ def test_psyclone_constructor():
     assert psyclone._api == "gocean1.0"
 
 
-def test_psyclone_is_available(mock_process):
+def test_psyclone_is_available(mock_process: ProcessRecorder):
     """
     Tests tool availability.
     """
     psyclone = Psyclone()
     assert psyclone.is_available is True
-    assert mock_process.calls == deque([['psyclone', '--version']])
+    assert [call.args for call in mock_process.calls] \
+           == [['psyclone', '--version']]
 
 
-def test_psyclone_is_not_available(fake_process):
+def test_psyclone_is_not_available(fake_process: FakeProcess):
     """
     Tests tool invailability.
     """
@@ -59,7 +61,7 @@ def _dummy_transform(algorithm_file: Path, configuration):
     return Path('dummy_script')
 
 
-def test_psyclone_process_with_api(mock_process):
+def test_psyclone_process_with_api(mock_process: ProcessRecorder):
     """
     Tests invoking PSyclone with an API specified.
     """
@@ -72,16 +74,13 @@ def test_psyclone_process_with_api(mock_process):
                      transformation_script=_dummy_transform,
                      kernel_roots=["root1", "root2"],
                      additional_parameters=["-c", "psyclone.cfg"])
-    assert mock_process.calls == deque(
-        [
-            ['psyclone', '-api', 'lfric', '-l', 'all', '-opsy', 'psy_file',
+    assert [call.args for call in mock_process.calls] \
+        == [['psyclone', '-api', 'lfric', '-l', 'all', '-opsy', 'psy_file',
              '-oalg', 'alg_file', '-s', 'dummy_script', '-c', 'psyclone.cfg',
-             '-d', 'root1', '-d', 'root2', 'x90_file']
-        ]
-    )
+             '-d', 'root1', '-d', 'root2', 'x90_file']]
 
 
-def test_psyclone_process_without_api(mock_process):
+def test_psyclone_process_without_api(mock_process: ProcessRecorder):
     """
     Tests invoking PSyclone with no API specified.
     """
@@ -93,16 +92,13 @@ def test_psyclone_process_without_api(mock_process):
                       transformation_script=_dummy_transform,
                       kernel_roots=["root1", "root2"],
                       additional_parameters=["-c", "psyclone.cfg"])
-    assert mock_process.calls == deque(
-        [
-            ['psyclone', '-l', 'all', '-opsy', 'psy_file', '-oalg', 'alg_file',
+    assert [call.args for call in mock_process.calls] \
+        == [['psyclone', '-l', 'all', '-opsy', 'psy_file', '-oalg', 'alg_file',
              '-s', 'dummy_script', '-c', 'psyclone.cfg', '-d', 'root1',
-             '-d', 'root2', 'x90_file']
-        ]
-    )
+             '-d', 'root2', 'x90_file']]
 
 
-def test_psyclone_process_default_api(mock_process):
+def test_psyclone_process_default_api(mock_process: ProcessRecorder):
     """
     Tests invoking PSyclone with no API specify a default.
     """
@@ -114,16 +110,13 @@ def test_psyclone_process_default_api(mock_process):
                       transformation_script=_dummy_transform,
                       kernel_roots=["root1", "root2"],
                       additional_parameters=["-c", "psyclone.cfg"])
-    assert mock_process.calls == deque(
-        [
-            ['psyclone', '-api', 'gocean1.0', '-l', 'all', '-opsy', 'psy_file',
+    assert [call.args for call in mock_process.calls] \
+        == [['psyclone', '-api', 'gocean1.0', '-l', 'all', '-opsy', 'psy_file',
              '-oalg', 'alg_file', '-s', 'script_called', '-c',
-              'psyclone.cfg', '-d', 'root1', '-d', 'root2', 'x90_file']
-        ]
-    )
+              'psyclone.cfg', '-d', 'root1', '-d', 'root2', 'x90_file']]
 
 
-def test_psyclone_process_default_api(mock_process):
+def test_psyclone_process_default_api(mock_process: ProcessRecorder):
     """
     Tests invoking PSyclone with both specified and default API.
     """
@@ -136,10 +129,7 @@ def test_psyclone_process_default_api(mock_process):
                       transformation_script=_dummy_transform,
                       kernel_roots=["root1", "root2"],
                       additional_parameters=["-c", "psyclone.cfg"])
-    assert mock_process.calls == deque(
-        [
-            ['psyclone', '-api', 'lfric', '-l', 'all', '-opsy', 'psy_file',
-             '-oalg', 'alg_file', '-s', 'dummy_script', '-c', 'psyclone.cfg',
-             '-d', 'root1', '-d', 'root2', 'x90_file']
-        ]
-    )
+    assert [call.args for call in mock_process.calls] \
+           == [['psyclone', '-api', 'lfric', '-l', 'all', '-opsy', 'psy_file',
+                '-oalg', 'alg_file', '-s', 'dummy_script', '-c', 'psyclone.cfg',
+                '-d', 'root1', '-d', 'root2', 'x90_file']]

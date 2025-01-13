@@ -11,6 +11,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
+from pytest_subprocess.fake_process import FakeProcess
+
 from fab.artefacts import ArtefactSet, ArtefactStore
 from fab.steps.link import link_shared_object
 from fab.tools.linker import Linker
@@ -18,7 +20,7 @@ from fab.tools.linker import Linker
 import pytest
 
 
-def test_run(tool_box):
+def test_run(tool_box, monkeypatch, fake_process: FakeProcess):
     '''Ensure the command is formed correctly, with the flags at the
     end since they are typically libraries.'''
 
@@ -32,21 +34,24 @@ def test_run(tool_box):
     config.artefact_store[ArtefactSet.OBJECT_FILES] = \
         {None: {'foo.o', 'bar.o'}}
 
-    with mock.patch('os.getenv', return_value='-L/foo1/lib -L/foo2/lib'):
-        # We need to create a linker here to pick up the env var:
-        linker = Linker("mock_link", "mock_link.exe", "vendor")
-        # Mark the linker as available so it can added to the tool box:
-        linker.__is_available = True
-        tool_box.add_tool(linker, silent_replace=True)
-        mock_result = mock.Mock(returncode=0, stdout="abc\ndef".encode())
-        with mock.patch('fab.tools.tool.subprocess.run',
-                        return_value=mock_result) as tool_run, \
-                pytest.warns(UserWarning, match="_metric_send_conn not set, "
-                                                "cannot send metrics"):
-            link_shared_object(config, "/tmp/lib_my.so",
-                               flags=['-fooflag', '-barflag'])
-
-    tool_run.assert_called_with(
-        ['mock_link.exe', '-L/foo1/lib', '-L/foo2/lib', 'bar.o', 'foo.o',
-         '-fooflag', '-barflag', '-fPIC', '-shared', '-o', '/tmp/lib_my.so'],
-        capture_output=True, env=None, cwd=None, check=False)
+    monkeypatch.setenv('LDFLAGS', '-L/foo1/lib -L/foo2/lib')
+    fake_process.register(['mock_link.exe',
+                           '-L/foo1/lib', '-L/foo2/lib',
+                           '--version'], stdout='1.2.3')
+    capture = fake_process.register(['mock_link.exe',
+                                     '-L/foo1/lib', '-L/foo2/lib',
+                                     'bar.o', 'foo.o',
+                                     '-fooflag', '-barflag',
+                                     '-fPIC', '-shared',
+                                     '-o', '/tmp/lib_my.so'], stdout='abc\ndef')
+    # We need to create a linker here to pick up the env var:
+    linker = Linker("mock_link", "mock_link.exe", "vendor")
+    # Mark the linker as available so it can added to the tool box:
+    tool_box.add_tool(linker, silent_replace=True)
+    with pytest.warns(UserWarning,
+                      match="_metric_send_conn not set, cannot send metrics"):
+        link_shared_object(config, "/tmp/lib_my.so",
+                           flags=['-fooflag', '-barflag'])
+    assert [call.args for call in capture.calls] \
+        == [['mock_link.exe', '-L/foo1/lib', '-L/foo2/lib', 'bar.o', 'foo.o',
+             '-fooflag', '-barflag', '-fPIC', '-shared', '-o', '/tmp/lib_my.so']]

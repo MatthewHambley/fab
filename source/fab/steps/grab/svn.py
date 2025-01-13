@@ -18,7 +18,7 @@ from fab.category import Category
 from fab.tools.versioning import Versioning
 
 
-def _get_revision(src, revision=None) -> Tuple[str, Union[str, None]]:
+def _get_revision(src, revision: Optional[int] = None) -> Tuple[str, Optional[str]]:
     """
     Pull out the revision if it's part of the url.
 
@@ -48,7 +48,7 @@ def _get_revision(src, revision=None) -> Tuple[str, Union[str, None]]:
 
 def _svn_prep_common(config, src: str,
                      dst_label: Optional[str],
-                     revision: Optional[str]) -> Tuple[str, Path,
+                     revision: Optional[int]) -> Tuple[str, Path,
                                                        Optional[str]]:
     src, revision = _get_revision(src, revision)
     if not config.source_root.exists():
@@ -61,7 +61,7 @@ def _svn_prep_common(config, src: str,
 @step
 def svn_export(config, src: str,
                dst_label: Optional[str] = None,
-               revision=None,
+               revision: Optional[int] = None,
                category=Category.SUBVERSION):
     # todo: params in docstrings
     """

@@ -136,7 +136,7 @@ class Subversion(Versioning):
 
     # pylint: disable-next=too-many-arguments
     def execute(self, pre_commands: Optional[List[str]] = None,
-                revision: Optional[Union[int, str]] = None,
+                revision: Optional[int] = None,
                 post_commands: Optional[List[str]] = None,
                 env: Optional[Dict[str, str]] = None,
                 cwd: Optional[Union[Path, str]] = None,
@@ -157,7 +157,7 @@ class Subversion(Versioning):
         if pre_commands:
             command.extend(pre_commands)
         if revision:
-            command.extend(["--revision", f"{revision}"])
+            command.extend(["--revision", str(revision)])
         if post_commands:
             command.extend(post_commands)
         return super().run(command, env=env, cwd=cwd,
@@ -165,7 +165,7 @@ class Subversion(Versioning):
 
     def export(self, src: Union[str, Path],
                dst: Union[str, Path],
-               revision: Optional[str] = None):
+               revision: Optional[int] = None):
         '''Runs svn export.
 
         :param src: from where to export.

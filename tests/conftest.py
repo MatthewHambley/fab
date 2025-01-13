@@ -11,7 +11,7 @@ from typing import Optional, Union, List, Dict
 from unittest import mock
 
 from pytest import fixture
-from pytest_subprocess.fake_process import FakeProcess
+from pytest_subprocess.fake_process import FakeProcess, ProcessRecorder
 
 from fab.tool_box import ToolBox
 from fab.tools import Category, PathLike
@@ -20,14 +20,13 @@ from fab.tools.linker import Linker
 
 
 @fixture(scope='function')
-def mock_process(fake_process: FakeProcess):
+def mock_process(fake_process: FakeProcess) -> ProcessRecorder:
     """
     Overrides subprocess.POpen with a version which always succeedes and logs
     commands for inspection.
     """
     fake_process.keep_last_process(True)
-    fake_process.register([fake_process.any()])
-    return fake_process
+    return fake_process.register([fake_process.any()])
 
 
 class StubC(CCompiler):
@@ -58,7 +57,11 @@ class StubC(CCompiler):
         if self.__special_version:
             return self.__special_version
         else:
-            return "1.2.3"
+            return super().run_version_command(version_command)
+
+    def parse_version_output(self, category: Category,
+                             version_output: str) -> str:
+        return version_output
 
 
 @fixture(scope="function")

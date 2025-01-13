@@ -16,7 +16,7 @@ from fab.tools import Category
 
 
 def fcm_export(config, src: str, dst_label: Optional[str] = None,
-               revision: Optional[Union[int, str]] = None):
+               revision: Optional[int] = None):
     """
     Params as per :func:`~fab.steps.grab.svn.svn_export`.
 

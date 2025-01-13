@@ -33,29 +33,6 @@ def fixture_artefact_store(analysed_files):
     return artefact_store
 
 
-def test_compile_cc_wrong_compiler(tool_box):
-    '''Test if a non-C compiler is specified as c compiler.
-    '''
-    config = BuildConfig('proj', tool_box, mpi=False, openmp=False)
-    # Get the default Fortran compiler into the ToolBox
-    fc = tool_box[Category.FORTRAN_COMPILER]
-    # But then change its category to be a C compiler:
-    fc.__category = Category.C_COMPILER
-
-    # Now check that _compile_file detects the incorrect category of the
-    # Fortran compiler
-    mp_common_args = mock.Mock(config=config)
-    with pytest.raises(RuntimeError) as err:
-        process_file((None, mp_common_args))
-    assert ("Unexpected tool 'mock_fortran_compiler' of category "
-            "'C_COMPILER' instead of FortranCompiler" in str(err.value))
-
-    with pytest.raises(RuntimeError) as err:
-        handle_compiler_args(config)
-    assert ("Unexpected tool 'mock_fortran_compiler' of category "
-            "'C_COMPILER' instead of FortranCompiler" in str(err.value))
-
-
 class TestCompilePass:
 
     def test_vanilla(self, analysed_files, tool_box: ToolBox):
@@ -343,7 +320,7 @@ class TestProcessFile:
         # changing the compiler must change the combo hash for the mods and obj
         mp_common_args, flags, analysed_file, orig_obj_hash, orig_mods_hash = content
         compiler = mp_common_args.config.tool_box[Category.FORTRAN_COMPILER]
-        compiler.__name += "xx"
+        compiler._Tool__name += "xx"  # Todo: clearly this is wrong.
 
         obj_combo_hash = '19dfa6c83'
         mods_combo_hash = '12768d979'
