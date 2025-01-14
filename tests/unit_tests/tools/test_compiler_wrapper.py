@@ -105,7 +105,7 @@ def test_compiler_is_available_no_version(fake_process):
 
 class HashStubC(CCompiler):
     def __init__(self, name: str, version: Tuple[int, ...]):
-        super().__init__(name, Path('vc'), 'foo')
+        super().__init__(name,'vc', 'foo')
         self.__version = version
 
     def get_version(self) -> Tuple[int, ...]:
@@ -182,7 +182,7 @@ def test_c_wrapper_module_output(mock_process: ProcessRecorder):
     """
     mpicc = Mpicc(Gcc())
     with raises(RuntimeError) as err:
-        mpicc.set_module_output_path("/tmp")
+        mpicc.set_module_output_path(Path("/tmp"))
     assert str(err.value) == "Compiler 'gcc' has no 'set_module_output_path' function."
 
 
@@ -190,9 +190,9 @@ def test_compiler_wrapper_fortran_with_add_args(mock_process: ProcessRecorder):
     '''Tests that additional arguments are handled as expected in
     a wrapper.'''
     mpif90 = Mpif90(Gfortran())
-    mpif90.set_module_output_path("/module_out")
+    mpif90.set_module_output_path(Path("/module_out"))
     with warns(UserWarning, match="Removing managed flag"):
-        mpif90.compile_file(Path("a.f90"), "a.o",
+        mpif90.compile_file(Path("a.f90"), Path("a.o"),
                             add_flags=["-J/b", "-O3"], openmp=False,
                             syntax_only=True)
         # Notice that "-J/b" has been removed
@@ -205,11 +205,11 @@ def test_compiler_wrapper_fortran_with_add_args_unnecessary_openmp(mock_process:
     '''Tests that additional arguments are handled as expected in
     a wrapper if also the openmp flags are specified.'''
     mpif90 = Mpif90(Gfortran())
-    mpif90.set_module_output_path("/module_out")
+    mpif90.set_module_output_path(Path("/module_out"))
     with warns(UserWarning,
                match="explicitly provided. "
                      "OpenMP should be enabled in the BuildConfiguration"):
-        mpif90.compile_file(Path("a.f90"), "a.o",
+        mpif90.compile_file(Path("a.f90"), Path("a.o"),
                             add_flags=["-fopenmp", "-O3"],
                             openmp=True, syntax_only=True)
     assert [call.args for call in mock_process.calls] \
@@ -223,7 +223,7 @@ def test_compiler_wrapper_c_with_add_args(mock_process: ProcessRecorder):
     Tests argument handling of wrapped C compiler.
     """
     mpicc = Mpicc(Gcc())
-    mpicc.compile_file(Path("a.f90"), "a.o", openmp=False,
+    mpicc.compile_file(Path("a.f90"), Path("a.o"), openmp=False,
                        add_flags=["-O3"])
     assert [call.args for call in mock_process.calls] \
         ==[['mpicc', '-c', "-O3", 'a.f90', '-o', 'a.o']]
@@ -237,7 +237,7 @@ def test_wrapped_c_rejects_fortran(mock_process):
     """
     mpicc = Mpicc(Gcc())
     with raises(RuntimeError) as err:
-        mpicc.compile_file(Path("a.f90"), "a.o", openmp=False,
+        mpicc.compile_file(Path("a.f90"), Path("a.o"), openmp=False,
                            add_flags=["-O3"], syntax_only=True)
     assert str(err.value) == "Syntax-only cannot be used with compiler 'mpicc-gcc'."
 
@@ -250,7 +250,7 @@ def test_wrapped_c_warns_openmp(mock_process: ProcessRecorder):
     with warns(UserWarning,
                match="explicitly provided. "
                      "OpenMP should be enabled in the BuildConfiguration"):
-        mpicc.compile_file(Path("a.f90"), "a.o",
+        mpicc.compile_file(Path("a.f90"), Path("a.o"),
                            add_flags=["-fopenmp", "-O3"],
                            openmp=True)
     assert [call.args for call in mock_process.calls] \
@@ -292,7 +292,7 @@ def test_compiler_wrapper_flags_with_add_arg(mock_process: ProcessRecorder):
     mpicc = Mpicc(gcc)
     gcc.add_flags(["-a", "-b"])
     mpicc.add_flags(["-d", "-e"])
-    mpicc.compile_file(Path("a.f90"), "a.o", add_flags=["-f"],
+    mpicc.compile_file(Path("a.f90"), Path("a.o"), add_flags=["-f"],
                        openmp=True)
     assert [call.args for call in mock_process.calls] \
         == [['mpicc', '-a', '-b', '-c', '-fopenmp',
@@ -309,10 +309,11 @@ def test_compiler_wrapper_flags_without_add_arg(mock_process: ProcessRecorder):
     mpicc = Mpicc(gcc)
     gcc.add_flags(["-a", "-b"])
     mpicc.add_flags(["-d", "-e"])
-    mpicc.compile_file(Path("a.f90"), "a.o", openmp=True)
+    mpicc.compile_file(Path("a.f90"), Path("a.o"), openmp=True)
     assert [call.args for call in mock_process.calls] \
         == [['mpicc', "-a", "-b", '-c', '-fopenmp',
              '-a', '-b', '-d', '-e', 'a.f90', '-o', 'a.o']]
+    assert mock_process.calls[0].kwargs is not None
     assert mock_process.calls[0].kwargs['cwd'] == '.'
 
 

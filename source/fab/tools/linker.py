@@ -67,7 +67,7 @@ class Linker(CompilerSuiteTool):
 
     def link(self, input_files: List[Path], output_file: Path,
              openmp: bool,
-             add_libs: Optional[List[str]] = None) -> str:
+             add_libs: Optional[List[str]] = None) -> Optional[str]:
         '''Executes the linker with the specified input files,
         creating `output_file`.
 

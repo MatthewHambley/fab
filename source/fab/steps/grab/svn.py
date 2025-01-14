@@ -18,7 +18,7 @@ from fab.category import Category
 from fab.tools.versioning import Versioning
 
 
-def _get_revision(src, revision: Optional[int] = None) -> Tuple[str, Optional[str]]:
+def _get_revision(src, revision: Optional[str] = None) -> Tuple[str, Optional[str]]:
     """
     Pull out the revision if it's part of the url.
 
@@ -48,7 +48,7 @@ def _get_revision(src, revision: Optional[int] = None) -> Tuple[str, Optional[st
 
 def _svn_prep_common(config, src: str,
                      dst_label: Optional[str],
-                     revision: Optional[int]) -> Tuple[str, Path,
+                     revision: Optional[str]) -> Tuple[str, Path,
                                                        Optional[str]]:
     src, revision = _get_revision(src, revision)
     if not config.source_root.exists():
@@ -61,7 +61,7 @@ def _svn_prep_common(config, src: str,
 @step
 def svn_export(config, src: str,
                dst_label: Optional[str] = None,
-               revision: Optional[int] = None,
+               revision: Optional[str] = None,
                category=Category.SUBVERSION):
     # todo: params in docstrings
     """
@@ -114,6 +114,8 @@ def check_conflict(tool: Versioning, dst: Union[str, Path]):
     '''Check if there's a conflict
     '''
     xml_str = tool.run(['status', '--xml'], cwd=dst, capture_output=True)
+    if xml_str is None:
+        raise RuntimeError("Subversion did not provide a status report")
     root = ET.fromstring(xml_str)
 
     for target in root:

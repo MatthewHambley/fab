@@ -3,7 +3,6 @@
 # which you should have received as part of this distribution
 """
 C language handling classes.
-
 """
 import logging
 import warnings

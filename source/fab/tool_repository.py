@@ -31,6 +31,7 @@ class ToolRepository(dict):
 
         Construction happens here and there is no constructor.
         """
+        cls._singleton: ToolRepository
         if hasattr(cls, '_singleton'):
             return cls._singleton
 
@@ -52,9 +53,9 @@ class ToolRepository(dict):
         from fab.tools.psyclone import Psyclone
         from fab.tools.rsync import Rsync
 
-        for cls in [Gcc, Icc, Gfortran, Ifort, Cpp, CppFortran,
+        for tool in [Gcc, Icc, Gfortran, Ifort, Cpp, CppFortran,
                     Fcm, Git, Subversion, Ar, Psyclone, Rsync]:
-            singleton.add_tool(cls())
+            singleton.add_tool(tool())
 
         from fab.tools.compiler_wrapper import Mpif90, Mpicc
         all_fc = singleton[Category.FORTRAN_COMPILER][:]

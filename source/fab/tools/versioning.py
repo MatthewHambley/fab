@@ -50,6 +50,8 @@ class Git(Versioning):
         '''
         folder = folder or '.'
         output = self.run(['log', '--oneline', '-n', '1'], cwd=folder)
+        if output is None:
+            raise RuntimeError("Subversion failed to return log information.")
         commit = output.split()[0]
         return commit
 
@@ -136,11 +138,11 @@ class Subversion(Versioning):
 
     # pylint: disable-next=too-many-arguments
     def execute(self, pre_commands: Optional[List[str]] = None,
-                revision: Optional[int] = None,
+                revision: Optional[str] = None,
                 post_commands: Optional[List[str]] = None,
                 env: Optional[Dict[str, str]] = None,
                 cwd: Optional[Union[Path, str]] = None,
-                capture_output=True) -> str:
+                capture_output=True) -> Optional[str]:
         '''Executes a svn command.
 
         :param pre_commands: List of strings to be sent to
@@ -165,7 +167,7 @@ class Subversion(Versioning):
 
     def export(self, src: Union[str, Path],
                dst: Union[str, Path],
-               revision: Optional[int] = None):
+               revision: Optional[str] = None):
         '''Runs svn export.
 
         :param src: from where to export.

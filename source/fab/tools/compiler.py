@@ -191,7 +191,10 @@ class Compiler(CompilerSuiteTool):
             error.
         '''
         try:
-            return self.run(version_command, capture_output=True)
+            version = self.run(version_command, capture_output=True)
+            if version is None:
+                raise RuntimeError("Subversion did not return a version.")
+            return version
         except RuntimeError as err:
             raise RuntimeError(f"Error asking for version of compiler "
                                f"'{self.name}'") from err

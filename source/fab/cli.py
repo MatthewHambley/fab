@@ -3,16 +3,16 @@
 #  For further details please refer to the file COPYRIGHT
 #  which you should have received as part of this distribution
 # ##############################################################################
-
-'''Functions to run Fab from the command line.
-'''
-
+"""
+Command line entry point.
+"""
 import sys
 from pathlib import Path
 from typing import Dict, Optional
 
 from fab.artefacts import ArtefactSet, CollectionGetter
 from fab.build_config import BuildConfig
+from fab.category import Category
 from fab.steps.analyse import analyse
 from fab.steps.c_pragma_injector import c_pragma_injector
 from fab.steps.compile_c import compile_c
@@ -22,7 +22,8 @@ from fab.steps.compile_fortran import compile_fortran
 from fab.steps.find_source_files import find_source_files
 from fab.steps.grab.folder import grab_folder
 from fab.steps.preprocess import preprocess_c, preprocess_fortran
-from fab.tools import Category, ToolBox, ToolRepository
+from fab.tool_box import ToolBox
+from fab.tool_repository import ToolRepository
 from fab.util import common_arg_parser
 
 

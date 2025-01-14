@@ -69,6 +69,7 @@ class TestGit:
         assert "abc" == git.current_commit()
         assert fake_process.calls \
                == deque([['git', 'log', '--oneline', '-n', '1']])
+        assert recorder.calls[0].kwargs is not None
         assert recorder.calls[0].kwargs['cwd'] == '.'
 
     def test_git_current_commit_path(self, fake_process: FakeProcess):
@@ -84,6 +85,7 @@ class TestGit:
         assert "abc" == git.current_commit("/not-exist")
         assert fake_process.calls \
                == deque([['git', 'log', '--oneline', '-n', '1']])
+        assert recorder.calls[0].kwargs is not None
         assert recorder.calls[0].kwargs['cwd'] == '/not-exist'
 
     def test_git_init(self, mock_process: ProcessRecorder):
@@ -97,6 +99,7 @@ class TestGit:
         git.init("/src")
         assert [call.args for call in mock_process.calls] \
             == [['git', 'init', '.']]
+        assert mock_process.calls[0].kwargs is not None
         assert mock_process.calls[0].kwargs['cwd'] == '/src'
 
     def test_git_clean(self, mock_process: ProcessRecorder):
@@ -110,6 +113,7 @@ class TestGit:
         git.clean('/src')
         assert [call.args for call in mock_process.calls] \
                == [['git', 'clean', '-f']]
+        assert mock_process.calls[0].kwargs is not None
         assert mock_process.calls[0].kwargs['cwd'] == '/src'
 
     def test_git_fetch(self, mock_process: ProcessRecorder):
@@ -123,6 +127,7 @@ class TestGit:
         git.fetch("/src", "/dst", revision="revision")
         assert [call.args for call in mock_process.calls] \
                == [['git', 'fetch', '/src', 'revision']]
+        assert mock_process.calls[0].kwargs is not None
         assert mock_process.calls[0].kwargs['cwd'] == '/dst'
 
     def test_git_checkout(self, mock_process: ProcessRecorder):
@@ -139,6 +144,7 @@ class TestGit:
                     ['git', 'fetch', '/src', 'revision'],
                     ['git', 'checkout', 'FETCH_HEAD']
                   ]
+        assert mock_process.calls[0].kwargs is not None
         assert mock_process.calls[0].kwargs['cwd'] == '/dst'
 
     def test_git_merge(self, mock_process: ProcessRecorder):
@@ -152,6 +158,7 @@ class TestGit:
         git.merge("/dst", revision="revision")
         assert [call.args for call in mock_process.calls] \
                == [['git', 'merge', 'FETCH_HEAD']]
+        assert mock_process.calls[0].kwargs is not None
         assert mock_process.calls[0].kwargs['cwd'] == '/dst'
 
     def test_git_merge_fail(self, fake_process: FakeProcess):
@@ -237,6 +244,7 @@ class TestSubversion:
         svn.export("/src", "/dst")
         assert [call.args for call in mock_process.calls] \
                == [['svn', 'export', '--force', '/src', '/dst']]
+        assert mock_process.calls[0].kwargs is not None
         assert mock_process.calls[0].kwargs['cwd'] is None
 
     def test_svn_checkout_revision(self, mock_process: ProcessRecorder):
@@ -250,6 +258,7 @@ class TestSubversion:
         svn.checkout("/src", "/dst", revision="123")
         assert [call.args for call in mock_process.calls] \
             == [['svn', 'checkout', '--revision', '123', '/src', '/dst']]
+        assert mock_process.calls[0].kwargs is not None
         assert mock_process.calls[0].kwargs['cwd'] is None
 
     def test_svn_checkout_head(self, mock_process: ProcessRecorder):
@@ -263,6 +272,7 @@ class TestSubversion:
         svn.checkout("/src", "/dst")
         assert [call.args for call in mock_process.calls] \
                == [['svn', 'checkout', '/src', '/dst']]
+        assert mock_process.calls[0].kwargs is not None
         assert mock_process.calls[0].kwargs['cwd'] is None
 
     def test_svn_update(self, mock_process: ProcessRecorder):
@@ -276,6 +286,7 @@ class TestSubversion:
         svn.update("/dst", revision="123")
         assert [call.args for call in mock_process.calls] \
                == [['svn', 'update', '--revision', '123', '/dst']]
+        assert mock_process.calls[0].kwargs is not None
         assert mock_process.calls[0].kwargs['cwd'] is None
 
     def test_svn_merge(self, mock_process: ProcessRecorder):
@@ -289,6 +300,7 @@ class TestSubversion:
         svn.merge("/src", "/dst", "123")
         assert [call.args for call in mock_process.calls] \
                == [['svn', 'merge', '--non-interactive', '/src@123']]
+        assert mock_process.calls[0].kwargs is not None
         assert mock_process.calls[0].kwargs['cwd'] == '/dst'
 
 

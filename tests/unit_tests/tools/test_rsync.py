@@ -51,7 +51,7 @@ def test_rsync_create_source_directory(mock_process: ProcessRecorder):
     Tests rsync with source ending with '/'.
     """
     rsync = Rsync()
-    rsync.execute(src="/src/", dst="/dst")
+    rsync.execute(src=Path("/src/"), dst=Path("/dst"))
     assert [call.args for call in mock_process.calls] \
            == [['rsync', '--times', '--links', '--stats', '-ru', '/src/', '/dst']]
 
@@ -61,6 +61,6 @@ def test_rsync_create_source_file(mock_process: ProcessRecorder):
     Tests rsync when source does not end with '/'.
     """
     test_unit = Rsync()
-    test_unit.execute(src="/src", dst="/dst")
+    test_unit.execute(src=Path("/src"), dst=Path("/dst"))
     assert [call.args for call in mock_process.calls] \
            == [['rsync', '--times', '--links', '--stats', '-ru', '/src/', '/dst']]

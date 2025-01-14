@@ -68,8 +68,8 @@ def test_psyclone_process_with_api(mock_process: ProcessRecorder):
     psyclone = Psyclone()
     psyclone.process(config=Mock(),
                      api='lfric',
-                     x90_file="x90_file",
-                     psy_file="psy_file",
+                     x90_file=Path("x90_file"),
+                     psy_file=Path("psy_file"),
                      alg_file="alg_file",
                      transformation_script=_dummy_transform,
                      kernel_roots=["root1", "root2"],
@@ -86,8 +86,8 @@ def test_psyclone_process_without_api(mock_process: ProcessRecorder):
     """
     test_unit = Psyclone()
     test_unit.process(config=Mock(),
-                      x90_file="x90_file",
-                      psy_file="psy_file",
+                      x90_file=Path("x90_file"),
+                      psy_file=Path("psy_file"),
                       alg_file="alg_file",
                       transformation_script=_dummy_transform,
                       kernel_roots=["root1", "root2"],
@@ -104,26 +104,26 @@ def test_psyclone_process_default_api(mock_process: ProcessRecorder):
     """
     test_unit = Psyclone(api="gocean1.0")
     test_unit.process(config=Mock(),
-                      x90_file="x90_file",
-                      psy_file="psy_file",
-                       alg_file="alg_file",
+                      x90_file=Path("x90_file"),
+                      psy_file=Path("psy_file"),
+                      alg_file="alg_file",
                       transformation_script=_dummy_transform,
                       kernel_roots=["root1", "root2"],
                       additional_parameters=["-c", "psyclone.cfg"])
     assert [call.args for call in mock_process.calls] \
         == [['psyclone', '-api', 'gocean1.0', '-l', 'all', '-opsy', 'psy_file',
-             '-oalg', 'alg_file', '-s', 'script_called', '-c',
+             '-oalg', 'alg_file', '-s', 'dummy_script', '-c',
               'psyclone.cfg', '-d', 'root1', '-d', 'root2', 'x90_file']]
 
 
-def test_psyclone_process_default_api(mock_process: ProcessRecorder):
+def test_psyclone_process_lfric_api(mock_process: ProcessRecorder):
     """
     Tests invoking PSyclone with both specified and default API.
     """
     test_unit = Psyclone(api="gocean1.0")
     test_unit.process(config=Mock(),
-                      x90_file="x90_file",
-                      psy_file="psy_file",
+                      x90_file=Path("x90_file"),
+                      psy_file=Path("psy_file"),
                       alg_file="alg_file",
                       api='lfric',
                       transformation_script=_dummy_transform,

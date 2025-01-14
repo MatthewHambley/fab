@@ -222,10 +222,10 @@ def test_compiler_with_add_args(mock_process: ProcessRecorder):
     fc = FortranCompiler("gfortran", "gfortran", suite="gnu",
                          openmp_flag="-fopenmp",
                          module_folder_flag="-J")
-    fc.set_module_output_path("/module_out")
+    fc.set_module_output_path(Path("/module_out"))
     assert fc._module_output_path == "/module_out"
     with warns(UserWarning, match="Removing managed flag"):
-        fc.compile_file(Path("a.f90"), "a.o", add_flags=["-J/b", "-O3"],
+        fc.compile_file(Path("a.f90"), Path("a.o"), add_flags=["-J/b", "-O3"],
                         openmp=False, syntax_only=True)
     # Notice that "-J/b" has been removed
     assert [call.args for call in mock_process.calls] \
@@ -234,7 +234,7 @@ def test_compiler_with_add_args(mock_process: ProcessRecorder):
     with warns(UserWarning,
                match="explicitly provided. OpenMP should be enabled in "
                      "the BuildConfiguration"):
-        fc.compile_file(Path("a.f90"), "a.o",
+        fc.compile_file(Path("a.f90"), Path("a.o"),
                         add_flags=["-fopenmp", "-O3"],
                         openmp=True, syntax_only=True)
 

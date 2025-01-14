@@ -45,7 +45,7 @@ def test_run(tool_box, monkeypatch, fake_process: FakeProcess):
                                      '-fPIC', '-shared',
                                      '-o', '/tmp/lib_my.so'], stdout='abc\ndef')
     # We need to create a linker here to pick up the env var:
-    linker = Linker("mock_link", "mock_link.exe", "vendor")
+    linker = Linker("mock_link", Path("mock_link.exe"), "vendor")
     # Mark the linker as available so it can added to the tool box:
     tool_box.add_tool(linker, silent_replace=True)
     with pytest.warns(UserWarning,

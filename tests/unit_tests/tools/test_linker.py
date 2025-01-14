@@ -134,7 +134,7 @@ def test_linker_add_compiler_flag(mock_process: ProcessRecorder):
     """
     Ensure linker works when compiler is not specified.
     """
-    linker = Linker("no-compiler", "no-compiler.exe", "suite")
+    linker = Linker("no-compiler", Path("no-compiler.exe"), "suite")
     linker.flags.append("-some-other-flag")
     linker.link([Path("a.o")], Path("a.out"), openmp=False)
     assert [call.args for call in mock_process.calls] \

@@ -36,7 +36,7 @@ class TestLinkExe:
                                '-L/foo1/lib', '-L/foo2/lib',
                                '--version'], stdout='1.2.3')
         # We need to create a linker here to pick up the env var:
-        linker = Linker("mock_link", "mock_link.exe", "mock-vendor")
+        linker = Linker("mock_link", Path("mock_link.exe"), "mock-vendor")
         # Mark the linker as available to it can be added to the tool box
         tool_box.add_tool(linker, silent_replace=True)
 

@@ -169,6 +169,7 @@ class Tool:
                                f"'{command}'.")
         getLogger(__name__).debug(f'run_command: {" ".join(command)}')
         try:
+            cwd_arg: Optional[str]
             if cwd is not None:
                 cwd_arg = str(cwd)
             else:
@@ -207,9 +208,9 @@ class CompilerSuiteTool(Tool):
     """
     def __init__(self, name: str, executable: PathLike, suite: str,
                  category: Category,
-                 availability_argument: Optional[str] = "--version"):
+                 availability_argument: Optional[str] = None):
         super().__init__(name, executable, category,
-                         availability_argument=availability_argument)
+                         availability_argument=availability_argument or "--version")
         self._suite = suite
 
     @property
