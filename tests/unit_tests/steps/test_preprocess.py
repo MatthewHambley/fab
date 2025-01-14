@@ -4,11 +4,9 @@
 #  which you should have received as part of this distribution
 # ##############################################################################
 from pathlib import Path
-from unittest import mock
 
 from fab.build_config import BuildConfig
 from fab.steps.preprocess import preprocess_fortran
-from fab.category import Category
 from fab.tool_box import ToolBox
 
 
@@ -34,7 +32,6 @@ class Test_preprocess_fortran:
         """
         config = BuildConfig('proj', ToolBox(), fab_workspace=tmp_path)
         big_f90 = Path(config.source_root / 'big.F90')
-        little_f90 = config.source_root / 'big.f90'
 
         def my_preprocess(*args, **kwargs):
             assert args[1] == big_f90

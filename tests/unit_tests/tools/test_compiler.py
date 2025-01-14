@@ -13,7 +13,7 @@ from textwrap import dedent
 from unittest import mock
 
 from pytest import mark, raises, warns
-from pytest_subprocess.fake_process import FakeProcess, ProcessRecorder
+from pytest_subprocess.fake_process import ProcessRecorder
 
 from fab.category import Category
 from fab.tools.compiler import Compiler, CCompiler, FortranCompiler, Gcc, Gfortran, Icc, Ifort
@@ -35,6 +35,7 @@ def test_constructor_gcc():
     with raises(NotImplementedError) as err:
         cc.parse_version_output(Category.FORTRAN_COMPILER, "NOT NEEDED")
     assert str(err.value) == "The method `parse_version_output` must be provided using a mixin."
+
 
 def constructor_gfortran():
     fc = FortranCompiler("gfortran", "gfortran", "gnu",

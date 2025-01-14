@@ -24,7 +24,7 @@ from fab.parse.fortran import AnalysedFortran
 from fab.steps import check_for_errors, run_mp, step
 from fab.category import Category
 from fab.flags import Flags
-from fab.tools.compiler import Compiler, Flags
+from fab.tools.compiler import Compiler
 from fab.util import (CompiledFile, log_or_dot_finish, log_or_dot, Timer,
                       by_type, file_checksum)
 

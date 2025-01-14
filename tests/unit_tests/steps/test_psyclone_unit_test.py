@@ -45,7 +45,7 @@ class TestGenPrebuildHash:
             cli_args=[],
             config=None,  # type: ignore[arg-type]
             kernel_roots=[],
-            transformation_script=lambda x, y:dummy_script,
+            transformation_script=lambda x, y: dummy_script,
             api='lfric',
             overrides_folder=None,
             override_files=None,  # type: ignore[arg-type]

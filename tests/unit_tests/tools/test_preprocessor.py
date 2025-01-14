@@ -9,7 +9,6 @@ Tests source preprocessors.
 from collections import deque
 from pathlib import Path
 
-from pytest import mark
 from pytest_subprocess.fake_process import FakeProcess, ProcessRecorder
 
 from fab.category import Category

@@ -6,10 +6,8 @@
 """
 Tests the C compiler step.
 """
-import os
 from pathlib import Path
-from unittest import mock
-from typing import Tuple, Optional, Union, List, Dict
+from typing import Tuple, Optional, Union, List
 
 from pytest import fixture, raises, warns
 from pytest_subprocess.fake_process import FakeProcess
@@ -17,9 +15,9 @@ from pytest_subprocess.fake_process import FakeProcess
 from fab.artefacts import ArtefactSet
 from fab.build_config import AddFlags, BuildConfig
 from fab.parse.c import AnalysedC
-from fab.steps.compile_c import get_obj_combo_hash, _compile_file, compile_c
+from fab.steps.compile_c import get_obj_combo_hash, compile_c
 from fab.tool_box import ToolBox
-from fab.tools import Category, Flags, PathLike
+from fab.tools import Flags
 from fab.tools.compiler import CCompiler
 
 
@@ -68,7 +66,6 @@ class TestCompileC:
         Ensures the command line is formed correctly.
         """
         config, _ = environment
-        compiler = CStub()
 
         monkeypatch.setenv('CFLAGS', '-Denv_flag')
 
@@ -80,7 +77,7 @@ class TestCompileC:
 
         # ensure it created the correct artefact collection
         assert config.artefact_store[ArtefactSet.OBJECT_FILES] == {
-            None: {config.prebuild_folder / f'foo.1723febd6.o', }
+            None: {config.prebuild_folder / 'foo.1723febd6.o', }
         }
 
     def test_exception_handling(self, tmp_path: Path):
@@ -108,7 +105,7 @@ class TestGetObjComboHash:
     def test_vanilla(self, environment, flags, fake_process: FakeProcess):
         '''Test that we get the expected hashes in this test setup.'''
         command = ['stubc', '--version']
-        recorder = fake_process.register(command, stdout='1.2.3')
+        fake_process.register(command, stdout='1.2.3')
         config, analysed_file = environment
         compiler = CStub()
         result = get_obj_combo_hash(compiler, analysed_file, flags)

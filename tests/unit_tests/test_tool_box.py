@@ -6,14 +6,13 @@
 
 '''This module tests the TooBox class.
 '''
-from unittest import mock
 import warnings
 
 from pytest import raises, warns
-from pytest_subprocess.fake_process import FakeProcess, ProcessRecorder
+from pytest_subprocess.fake_process import FakeProcess
 
 from fab.category import Category
-from fab.tools.compiler import CCompiler, Gfortran
+from fab.tools.compiler import Gfortran
 from fab.tool_box import ToolBox
 from fab.tool_repository import ToolRepository
 

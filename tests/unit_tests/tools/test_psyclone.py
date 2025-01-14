@@ -10,11 +10,9 @@ from collections import deque
 from pathlib import Path
 from unittest.mock import Mock
 
-from pytest import fixture
 from pytest_subprocess.fake_process import FakeProcess, ProcessRecorder
 
 from fab.category import Category
-from fab.tool_box import ToolBox
 from fab.tools.psyclone import Psyclone
 
 
@@ -113,7 +111,7 @@ def test_psyclone_process_default_api(mock_process: ProcessRecorder):
     assert [call.args for call in mock_process.calls] \
         == [['psyclone', '-api', 'gocean1.0', '-l', 'all', '-opsy', 'psy_file',
              '-oalg', 'alg_file', '-s', 'dummy_script', '-c',
-              'psyclone.cfg', '-d', 'root1', '-d', 'root2', 'x90_file']]
+             'psyclone.cfg', '-d', 'root1', '-d', 'root2', 'x90_file']]
 
 
 def test_psyclone_process_lfric_api(mock_process: ProcessRecorder):

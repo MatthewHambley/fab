@@ -7,14 +7,14 @@
 Common PyTest fixtures.
 """
 from pathlib import Path
-from typing import Optional, Union, List, Dict
+from typing import Optional
 from unittest import mock
 
 from pytest import fixture
 from pytest_subprocess.fake_process import FakeProcess, ProcessRecorder
 
 from fab.tool_box import ToolBox
-from fab.tools import Category, PathLike
+from fab.tools import Category
 from fab.tools.compiler import CCompiler, FortranCompiler
 from fab.tools.linker import Linker
 

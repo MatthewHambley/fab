@@ -5,7 +5,6 @@
 # ##############################################################################
 from pathlib import Path
 from types import SimpleNamespace
-from unittest import mock
 
 from pytest_subprocess.fake_process import FakeProcess
 

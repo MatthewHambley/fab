@@ -60,10 +60,10 @@ def test_constructor_fortran_compiler(mock_fortran_compiler):
 
 def test_costructor_missing():
     with raises(RuntimeError) as err:
-        linker = Linker(name="no-exec-given")
+        _ = Linker(name="no-exec-given")
     assert str(err.value) == \
            "Either specify name, exec name, and suite or a compiler when " \
-            "creating Linker."
+           "creating Linker."
 
 
 def test_is_available_compiler(stub_c_compiler,
@@ -71,8 +71,7 @@ def test_is_available_compiler(stub_c_compiler,
     """
     Tests availability against a compiler.
     """
-    recorder = fake_process.register(['stubc', '--version'],
-                                     stdout='1.2.3')
+    fake_process.register(['stubc', '--version'], stdout='1.2.3')
     linker = Linker(compiler=stub_c_compiler)
     assert linker.is_available is True
 

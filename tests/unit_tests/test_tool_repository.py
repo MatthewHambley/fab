@@ -133,8 +133,8 @@ class TestToolRepository:
         does not support OpenMP (which triggers additional tests in the
         ToolRepository.'''
         tr = ToolRepository()
-        fc = FortranCompiler("gfortran", "gfortran", "gnu", openmp_flag=None,
-                             module_folder_flag="-J")
+        _ = FortranCompiler("gfortran", "gfortran", "gnu",
+                            openmp_flag=None, module_folder_flag="-J")
 
         monkeypatch.setitem(tr, Category.FORTRAN_COMPILER, [])
         with raises(RuntimeError) as err:

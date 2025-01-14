@@ -35,8 +35,8 @@ def test_compiler_wrapper_version_and_caching(fake_process: FakeProcess):
     fake_process.register(['mpicc', '--version'], stdout="gcc (bar) 1.2.3")
     mpicc = Mpicc(Gcc())
     # The wrapper should report the version of the wrapped compiler:
-    assert mpicc.get_version() == (1,2,3)
-    assert mpicc.get_version() == (1,2,3)
+    assert mpicc.get_version() == (1, 2, 3)
+    assert mpicc.get_version() == (1, 2, 3)
     # Test that the value is cached:
     assert fake_process.calls == deque(
         [
@@ -64,8 +64,9 @@ def test_compiler_wrapper_version_consistency(fake_process: FakeProcess):
                           stdout="gcc (GCC) 8.5.0 20210514 (Red Hat 8.5.0-20)")
     with raises(RuntimeError) as err:
         mpicc.get_version()
-    assert str(err.value) == "Different version for compiler 'Gcc - gcc: gcc' (8.6.0) " \
-                    "and compiler wrapper 'Mpicc(gcc)' (8.5.0)."
+    assert str(err.value) \
+           == "Different version for compiler 'Gcc - gcc: gcc' (8.6.0) " \
+              "and compiler wrapper 'Mpicc(gcc)' (8.5.0)."
 
 
 def test_compiler_wrapper_version_compiler_unavailable(stub_c_compiler,
@@ -105,7 +106,7 @@ def test_compiler_is_available_no_version(fake_process):
 
 class HashStubC(CCompiler):
     def __init__(self, name: str, version: Tuple[int, ...]):
-        super().__init__(name,'vc', 'foo')
+        super().__init__(name, 'vc', 'foo')
         self.__version = version
 
     def get_version(self) -> Tuple[int, ...]:
@@ -156,6 +157,7 @@ def test_fortran_wrapper_syntax_only():
     """
     mpif90 = Mpif90(Gfortran())
     assert mpif90.has_syntax_only
+
 
 def test_c_wrapper_syntax_only():
     """
@@ -226,7 +228,7 @@ def test_compiler_wrapper_c_with_add_args(mock_process: ProcessRecorder):
     mpicc.compile_file(Path("a.f90"), Path("a.o"), openmp=False,
                        add_flags=["-O3"])
     assert [call.args for call in mock_process.calls] \
-        ==[['mpicc', '-c', "-O3", 'a.f90', '-o', 'a.o']]
+        == [['mpicc', '-c', "-O3", 'a.f90', '-o', 'a.o']]
 
 
 def test_wrapped_c_rejects_fortran(mock_process):

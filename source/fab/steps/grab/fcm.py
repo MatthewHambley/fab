@@ -8,8 +8,7 @@
 decorated with @steps since all functions here just call the
 corresponding svn steps.
 '''
-
-from typing import Optional, Union
+from typing import Optional
 
 from fab.steps.grab.svn import svn_export, svn_checkout, svn_merge
 from fab.tools import Category

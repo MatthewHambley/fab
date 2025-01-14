@@ -10,7 +10,6 @@ from collections import deque
 from filecmp import cmpfiles, dircmp
 from pathlib import Path
 from shutil import which
-from unittest import mock
 from subprocess import Popen, run
 from time import sleep
 from typing import List, Tuple
@@ -169,7 +168,7 @@ class TestGit:
         when actually shelling out to a subprocess happens in system testing.
         """
         git = Git()
-        foo = fake_process.register(['git', 'merge', 'FETCH_HEAD'], returncode=1)
+        fake_process.register(['git', 'merge', 'FETCH_HEAD'], returncode=1)
         fake_process.register(['git', 'merge', '--abort'], returncode=0)
         with raises(RuntimeError) as err:
             git.merge("/dst", revision="revision")
@@ -195,7 +194,7 @@ class TestGit:
         when actually shelling out to a subprocess happens in system testing.
         """
         git = Git()
-        foo = fake_process.register(['git', 'merge', 'FETCH_HEAD'], returncode=1)
+        fake_process.register(['git', 'merge', 'FETCH_HEAD'], returncode=1)
         fake_process.register(['git', 'merge', '--abort'], returncode=2)
         with raises(RuntimeError) as err:
             git.merge("/dst", revision="revision")
@@ -231,7 +230,8 @@ class TestSubversion:
         svn = Subversion()
         svn.export("/src", "/dst", revision="123")
         assert [call.args for call in mock_process.calls] \
-               == [['svn', 'export', '--force','--revision', '123', '/src', '/dst']]
+               == [['svn', 'export', '--force',
+                    '--revision', '123', '/src', '/dst']]
 
     def test_svn_export_head(self, mock_process: ProcessRecorder):
         """

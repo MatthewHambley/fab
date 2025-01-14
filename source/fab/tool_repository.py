@@ -54,7 +54,7 @@ class ToolRepository(dict):
         from fab.tools.rsync import Rsync
 
         for tool in [Gcc, Icc, Gfortran, Ifort, Cpp, CppFortran,
-                    Fcm, Git, Subversion, Ar, Psyclone, Rsync]:
+                     Fcm, Git, Subversion, Ar, Psyclone, Rsync]:
             singleton.add_tool(tool())
 
         from fab.tools.compiler_wrapper import Mpif90, Mpicc

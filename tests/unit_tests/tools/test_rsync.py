@@ -6,7 +6,6 @@
 
 '''Tests the rsync implementation.
 '''
-from collections import deque
 from pathlib import Path
 
 from pytest_subprocess.fake_popen import FakePopen

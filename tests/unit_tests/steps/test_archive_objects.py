@@ -8,13 +8,12 @@ Test for the archive step.
 """
 from pathlib import Path
 
-from pytest import raises, warns
+from pytest import warns
 from pytest_subprocess.fake_process import FakeProcess
 
 from fab.artefacts import ArtefactSet
 from fab.build_config import BuildConfig
 from fab.steps.archive_objects import archive_objects
-from fab.category import Category
 from fab.tool_box import ToolBox
 
 

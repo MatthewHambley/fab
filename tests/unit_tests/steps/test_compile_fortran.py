@@ -10,7 +10,7 @@ from fab.build_config import BuildConfig, FlagsConfig
 from fab.parse.fortran import AnalysedFortran
 from fab.steps.compile_fortran import (
     compile_pass, get_compile_next,
-    get_mod_hashes, handle_compiler_args, MpCommonArgs, process_file,
+    get_mod_hashes, MpCommonArgs, process_file,
     store_artefacts)
 from fab.category import Category
 from fab.tool_box import ToolBox
