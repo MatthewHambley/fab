@@ -63,7 +63,8 @@ class Tool:
         :returns: whether the tool is working (True) or not.
         '''
         try:
-            self.run(self._availability_option)
+            op = self._availability_option
+            self.run(op)
         except (RuntimeError, FileNotFoundError):
             return False
         return True
