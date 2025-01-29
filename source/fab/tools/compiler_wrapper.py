@@ -4,8 +4,8 @@
 # which you should have received as part of this distribution
 ##############################################################################
 
-"""This file contains the base class for any compiler, and derived
-classes for gcc, gfortran, icc, ifort
+"""This file contains the base class for any compiler-wrapper, including
+the derived classes for mpif90, mpicc, and CrayFtnWrapper and CrayCcWrapper.
 """
 
 from pathlib import Path
