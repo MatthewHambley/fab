@@ -195,7 +195,8 @@ class Compiler(CompilerSuiteTool):
         return version
 
     def run_version_command(
-            self, version_command: Optional[str] = '--version') -> str:
+            self, version_command: Union[str, List[str]] = '--version'
+    ) -> str:
         '''
         Run the compiler's command to get its version.
 
@@ -485,7 +486,7 @@ class Nvc(CCompiler):
                          version_regex=r"nvc (\d[\d\.-]+\d)")
 
     def run_version_command(
-            self, version_command: Optional[str] = '-V') -> str:
+            self, version_command: Union[str, List[str]] = '-V') -> str:
         '''Run the compiler's command to get its version. This implementation
         runs the function in the base class, and changes any '-' into a
         '.' to support nvidia version numbers which have dashes, e.g. 23.5-0.
@@ -520,7 +521,7 @@ class Nvfortran(FortranCompiler):
                          version_regex=r"nvfortran (\d[\d\.-]+\d)")
 
     def run_version_command(
-            self, version_command: Optional[str] = '-V') -> str:
+            self, version_command: Union[str, List[str]] = '-V') -> str:
         '''Run the compiler's command to get its version. This implementation
         runs the function in the base class, and changes any '-' into a
         '.' to support nvidia version numbers which have dashes, e.g. 23.5-0.
