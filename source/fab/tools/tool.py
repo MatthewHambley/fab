@@ -182,7 +182,7 @@ class Tool:
             res = subprocess.run(command, capture_output=capture_output,
                                  env=env, cwd=cwd, check=False)
         except FileNotFoundError as err:
-            raise RuntimeError(f"Command '{command}' could not be "
+            raise RuntimeError(f"Command '{' '.join(command)}' could not be "
                                f"executed.") from err
         if res.returncode != 0:
             msg = (f'Command failed with return code {res.returncode}:\n'

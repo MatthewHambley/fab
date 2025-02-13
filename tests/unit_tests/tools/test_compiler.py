@@ -6,17 +6,23 @@
 """
 Tests Compiler tools.
 """
-import os
-from pathlib import Path, PosixPath
+from logging import Logger
+from pathlib import Path
 from textwrap import dedent
 from typing import Dict, Optional, Tuple
 
 from pytest import mark, raises, warns
 from pytest_subprocess.fake_process import FakeProcess
 
-from fab.tools import (Category, CCompiler, Compiler, Craycc, Crayftn,
-                       FortranCompiler, Gcc, Gfortran, Icc, Icx, Ifort, Ifx,
-                       Nvc, Nvfortran)
+from tests.conftest import call_list
+from fab.tools.category import Category
+from fab.tools.compiler import (Compiler, CompilerSuiteTool,
+                                CCompiler, FortranCompiler,
+                                Craycc, Crayftn,
+                                Gcc, Gfortran,
+                                Icc, Ifort,
+                                Icx, Ifx,
+                                Nvc, Nvfortran)
 
 
 class TestCompiler:
@@ -53,7 +59,7 @@ class TestCompiler:
         third_hash = cc_three.get_hash()
         assert third_hash not in (first_hash, second_hash)
 
-        assert [call for call in fake_process.calls] == [
+        assert call_list(fake_process) == [
             ['testc', '--version'],
             ['testc', '--version'],
             ['testc', '--version']
@@ -87,7 +93,7 @@ class TestCompiler:
 
         fc.compile_file(Path("a.f90"), "a.o", openmp=control)
 
-        assert [call for call in fake_process.calls] \
+        assert call_list(fake_process) \
             == [command]
 
 
@@ -208,7 +214,7 @@ class TestFortranCompiler:
         with warns(UserWarning, match="Removing managed flag"):
             fc.compile_file(Path("a.f90"), "a.o", openmp=False,
                             add_flags=["-mod-dir/b", "-O3"])
-        assert [call for call in fake_process.calls] == [command]
+        assert call_list(fake_process) == [command]
 
     def test_openmp_args(self, fake_process: FakeProcess) -> None:
         command = ['tfortran', '-c', '-omp', '-omp', 'a.f90', '-o', 'a.o']
@@ -221,7 +227,7 @@ class TestFortranCompiler:
                          "the BuildConfiguration"):
             fc.compile_file(Path("a.f90"), "a.o", add_flags=["-omp"],
                             openmp=True)
-        assert [call for call in fake_process.calls] == [command]
+        assert call_list(fake_process) == [command]
 
     @mark.parametrize(['version_string', 'version'],
                       [('6.1.0', (6, 1, 0)),
@@ -328,7 +334,7 @@ class TestFortranCompiler:
             compiler.get_version()
 
         assert compiler.get_version() == (4, 5, 6)
-        assert [call for call in fake_process.calls] \
+        assert call_list(fake_process) \
                == [['sfortran', '--version'], ['sfortran', '--version']]
 
     def test_module_directory(self, fake_process: FakeProcess) -> None:
@@ -345,7 +351,7 @@ class TestFortranCompiler:
         # ToDo: Warning - private member access.
         assert fc._module_output_path == "/module_out"
         fc.compile_file(Path("a.f90"), "a.o", openmp=False)
-        assert [call for call in fake_process.calls] \
+        assert call_list(fake_process) \
             == [command]
 
 
@@ -1004,3 +1010,16 @@ class TestCrayFortran:
         assert str(err.value).startswith(
             "Unexpected version output format for compiler"
         )
+
+
+class TestCompileSuiteTool:
+    def test_suite_tool(self) -> None:
+        '''Test the constructor.'''
+        tool = CompilerSuiteTool("gnu", "gfortran", "gnu",
+                                 Category.FORTRAN_COMPILER)
+        assert str(tool) == "CompilerSuiteTool - gnu: gfortran"
+        assert tool.exec_name == "gfortran"
+        assert tool.name == "gnu"
+        assert tool.suite == "gnu"
+        assert tool.category == Category.FORTRAN_COMPILER
+        assert isinstance(tool.logger, Logger)

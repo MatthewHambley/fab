@@ -14,6 +14,8 @@ from tests.conftest import ExtendedRecorder
 from pytest import mark
 from pytest_subprocess.fake_process import FakeProcess
 
+from tests.conftest import call_list
+
 from fab.tools.category import Category
 from fab.tools.preprocessor import Cpp, CppFortran, Fpp, Preprocessor
 
@@ -41,7 +43,7 @@ def test_fpp_is_available(rc, fake_process: FakeProcess) -> None:
 
     fpp = Fpp()
     assert fpp.is_available is (rc == 0)
-    assert [call for call in fake_process.calls] == [command]
+    assert call_list(fake_process) == [command]
 
 
 class TestCpp:
@@ -57,7 +59,7 @@ class TestCpp:
         fake_process.register(['cpp', '--version'], returncode=1)
         cpp = Cpp()
         assert cpp.is_available is False
-        assert [call for call in fake_process.calls] == [['cpp', '--version']]
+        assert call_list(fake_process) == [['cpp', '--version']]
 
 
 class TestCppTraditional:
@@ -70,7 +72,7 @@ class TestCppTraditional:
 
         cppf = CppFortran()
         assert cppf.is_available is False
-        assert [call for call in fake_process.calls] == [command]
+        assert call_list(fake_process) == [command]
 
     def test_preprocess(self, subproc_record: ExtendedRecorder) -> None:
         cppf = CppFortran()

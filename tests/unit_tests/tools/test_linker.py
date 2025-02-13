@@ -14,6 +14,8 @@ from tests.conftest import ExtendedRecorder
 from pytest import fixture, mark, raises, warns
 from pytest_subprocess.fake_process import FakeProcess
 
+from tests.conftest import call_list
+
 from fab.tools import Category, Linker
 from fab.tools.compiler import CCompiler, FortranCompiler
 
@@ -113,7 +115,7 @@ class TestLinker:
         wrapped_linker = Linker(stub_c_compiler, linker=linker)
         assert wrapped_linker.check_available()
 
-        assert [call for call in fake_process.calls] == [['scc', '--version']]
+        assert call_list(fake_process) == [['scc', '--version']]
 
     def test_check_unavailable(self, stub_c_compiler: CCompiler,
                                fake_process: FakeProcess) -> None:
@@ -124,7 +126,7 @@ class TestLinker:
         fake_process.register(command, returncode=1)
         linker = Linker(stub_c_compiler)
         assert linker.check_available() is False
-        assert [call for call in fake_process.calls] == [command]
+        assert call_list(fake_process) == [command]
 
 
 class TestLinkerLibFlags:

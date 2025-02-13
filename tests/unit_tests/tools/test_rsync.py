@@ -6,10 +6,12 @@
 """
 Tests RSync file tree synchronisation tool.
 """
+from pytest_subprocess.fake_process import FakeProcess
+
+from tests.conftest import call_list, not_found_callback
+
 from fab.tools.category import Category
 from fab.tools.rsync import Rsync
-
-from pytest_subprocess.fake_process import FakeProcess
 
 
 def test_constructor():
@@ -27,12 +29,8 @@ def test_check_available(fake_process: FakeProcess) -> None:
     """
     Tests availability checking functionality.
     """
-    def not_found(process):
-        process.returncode = 1
-        raise FileNotFoundError("RSync executable missing")
-
     fake_process.register(['rsync', '--version'], stdout='1.2.3')
-    fake_process.register(['rsync', '--version'], callback=not_found)
+    fake_process.register(['rsync', '--version'], callback=not_found_callback)
 
     rsync = Rsync()
     assert rsync.check_available()
@@ -40,7 +38,7 @@ def test_check_available(fake_process: FakeProcess) -> None:
     # Test behaviour if a runtime error happens:
     assert not rsync.check_available()
 
-    assert [call for call in fake_process.calls] == [
+    assert call_list(fake_process) == [
         ['rsync', '--version'],
         ['rsync', '--version']
     ]
@@ -63,6 +61,6 @@ def test_rsync_create(fake_process: FakeProcess) -> None:
     # Test 2: src without /
     rsync.execute(src="/src", dst="/dst")
 
-    assert [call for call in fake_process.calls] == [
+    assert call_list(fake_process) == [
         with_command, without_command
     ]

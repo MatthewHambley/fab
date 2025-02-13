@@ -12,12 +12,14 @@ import typing
 from typing import Tuple
 from unittest.mock import Mock
 
+from pytest import mark, raises, warns
+from pytest_subprocess.fake_process import FakeProcess
+
+from tests.conftest import call_list, not_found_callback
+
 from fab.tools.category import Category
 import fab.tools.psyclone
 from fab.tools.psyclone import Psyclone
-
-from pytest import mark, raises, warns
-from pytest_subprocess.fake_process import FakeProcess
 
 
 def test_constructor():
@@ -40,7 +42,7 @@ def test_check_available_2_4_0(fake_process: FakeProcess) -> None:
 
     psyclone = Psyclone()
     assert psyclone.check_available() is True
-    assert [call for call in fake_process.calls] == [
+    assert call_list(fake_process) == [
         ['psyclone', '--version', 'does_not_exist']
     ]
 
@@ -57,7 +59,7 @@ def test_check_available_2_5_0(fake_process: FakeProcess) -> None:
     psyclone = Psyclone()
 
     assert psyclone.check_available() is True
-    assert [call for call in fake_process.calls] == [
+    assert call_list(fake_process) == [
         ['psyclone', '--version', 'does_not_exist'],
         ['psyclone', '-api', 'nemo', fab.tools.psyclone.__file__]
     ]
@@ -75,7 +77,7 @@ def test_check_available_post_2_5_0(fake_process: FakeProcess) -> None:
     assert psyclone.check_available()
     # ToDo: accessing private members.
     assert psyclone._version == (2, 5, 0, 1)
-    assert [call for call in fake_process.calls] == [
+    assert call_list(fake_process) == [
         ['psyclone', '--version', 'does_not_exist']
     ]
 
@@ -84,17 +86,13 @@ def test_not_available(fake_process: FakeProcess) -> None:
     """
     Tests lack of availability.
     """
-    def not_found(process):
-        process.returncode = 1
-        raise FileNotFoundError("PSyclone executable missing")
-
     fake_process.register(['psyclone', '--version', 'does_not_exist'],
-                          callback=not_found)
+                          callback=not_found_callback)
 
     psyclone = Psyclone()
 
     assert psyclone.check_available() is False
-    assert [call for call in fake_process.calls] == [
+    assert call_list(fake_process) == [
         ['psyclone', '--version', 'does_not_exist']
     ]
 
@@ -118,12 +116,8 @@ def test_check_process_missing(fake_process: FakeProcess) -> None:
     """
     Tests processing with a missing executable.
     """
-    def not_found(process):
-        process.returncode = 1
-        raise FileNotFoundError("Psyclone executable missing.")
-
     fake_process.register(['psyclone', '--version', 'does_not_exist'],
-                          callback=not_found)
+                          callback=not_found_callback)
 
     psyclone = Psyclone()
     config = Mock()
@@ -251,11 +245,11 @@ def test_process_api_old_psyclone(api: Tuple[str, str], version: str,
                      additional_parameters=["-c", "psyclone.cfg"])
 
     if version == '2.5.0':
-        assert [call for call in fake_process.calls] == [
+        assert call_list(fake_process) == [
             version_command, random_command, process_command
         ]
     else:
-        assert [call for call in fake_process.calls] == [
+        assert call_list(fake_process) == [
             version_command, process_command
         ]
 
@@ -293,11 +287,11 @@ def test_process_no_api_old_psyclone(version: str,
                      additional_parameters=["-c", "psyclone.cfg"])
 
     if version == '2.5.0':
-        assert [call for call in fake_process.calls] == [
+        assert call_list(fake_process) == [
             version_command, random_command, process_command
         ]
     else:
-        assert [call for call in fake_process.calls] == [
+        assert call_list(fake_process) == [
             version_command, process_command
         ]
 
@@ -335,11 +329,11 @@ def test_process_nemo_api_old_psyclone(version: str,
                      additional_parameters=["-c", "psyclone.cfg"])
 
     if version == '2.5.0':
-        assert [call for call in fake_process.calls] == [
+        assert call_list(fake_process) == [
             version_command, random_command, process_command
         ]
     else:
-        assert [call for call in fake_process.calls] == [
+        assert call_list(fake_process) == [
             version_command, process_command
         ]
 
@@ -376,7 +370,7 @@ def test_process_api_new_psyclone(api: Tuple[str, str],
                      kernel_roots=["root1", "root2"],
                      additional_parameters=["-c", "psyclone.cfg"])
 
-    assert [call for call in fake_process.calls] == [
+    assert call_list(fake_process) == [
         version_command, process_command
     ]
 
@@ -403,7 +397,7 @@ def test_process_no_api_new_psyclone(fake_process: FakeProcess) -> None:
                      kernel_roots=["root1", "root2"],
                      additional_parameters=["-c", "psyclone.cfg"])
 
-    assert [call for call in fake_process.calls] == [
+    assert call_list(fake_process) == [
         version_command, process_command
     ]
 
@@ -429,7 +423,7 @@ def test_process_nemo_api_new_psyclone(fake_process: FakeProcess) -> None:
                      kernel_roots=["root1", "root2"],
                      additional_parameters=["-c", "psyclone.cfg"])
 
-    assert [call for call in fake_process.calls] == [
+    assert call_list(fake_process) == [
         version_command, process_command
     ]
 

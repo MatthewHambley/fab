@@ -12,6 +12,8 @@ from typing import Optional
 from pytest import mark, raises, warns
 from pytest_subprocess.fake_process import FakeProcess
 
+from tests.conftest import call_list
+
 from fab.tools.category import Category
 from fab.tools.compiler import (Compiler, CCompiler, FortranCompiler,
                                 Gcc, Gfortran, Icc, Ifort)
@@ -46,7 +48,7 @@ def test_version_and_caching(fake_process: FakeProcess) -> None:
 
     # Test that the value is cached:
     assert wrapper.get_version() == (2, 3, 4)
-    assert [call for call in fake_process.calls] == [
+    assert call_list(fake_process) == [
         ['sfortran', '--version'], ['wrapf', '--version']
     ]
 
@@ -67,7 +69,7 @@ def test_version_consistency(fake_process: FakeProcess) -> None:
         "Different version for compiler 'CCompiler - some c: scc' (1.2.3) "
         "and compiler wrapper 'CompilerWrapper(some c)' (4.5.6)"
     )
-    assert [call for call in fake_process.calls] == [
+    assert call_list(fake_process) == [
         ['scc', '--version'], ['wrapc', '--version']
     ]
 
@@ -86,7 +88,7 @@ def test_version_compiler_unavailable(fake_process: FakeProcess) -> None:
         assert wrapper.get_version() == ""
     assert str(err.value).startswith("Cannot get version of wrapped compiler")
 
-    assert [call for call in fake_process.calls] == [['scc', '--version']]
+    assert call_list(fake_process) == [['scc', '--version']]
 
 
 def test_is_available_ok(fake_process: FakeProcess) -> None:
@@ -104,7 +106,7 @@ def test_is_available_ok(fake_process: FakeProcess) -> None:
     assert wrapper.is_available
     assert wrapper.is_available
     # Due to caching there should only be one call to check_avail
-    assert [call for call in fake_process.calls] == [
+    assert call_list(fake_process) == [
         ['scc', '--version'], ['wrapc', '--version']
     ]
 
@@ -119,7 +121,7 @@ def test_is_available_no_version(fake_process: FakeProcess) -> None:
     wrapper = CompilerWrapper('some wrapper', 'wrapc', compiler)
 
     assert not wrapper.is_available
-    assert [call for call in fake_process.calls] == [['scc', '--version']]
+    assert call_list(fake_process) == [['scc', '--version']]
 
 
 def test_get_hash(fake_process: FakeProcess) -> None:
@@ -167,7 +169,7 @@ def test_get_hash(fake_process: FakeProcess) -> None:
     hash4 = wrapper.get_hash()
     assert hash4 not in (hash1, hash2, hash3)
 
-    assert [call for call in fake_process.calls] == [
+    assert call_list(fake_process) == [
         ['scc', '--version'], ['wrapc', '--version'],
         ['scc', '--version'], ['wrapc', '--version'],
         ['scc', '--version'], ['wrapc', '--version'],
@@ -250,7 +252,7 @@ def test_fortran_with_add_args(fake_process: FakeProcess) -> None:
                              syntax_only=True)
     # Notice that "-J/b" has been removed
 
-    assert [call for call in fake_process.calls] == [command]
+    assert call_list(fake_process) == [command]
 
 
 def test_fortran_with_add_args_openmp(fake_process: FakeProcess) -> None:
@@ -273,7 +275,7 @@ def test_fortran_with_add_args_openmp(fake_process: FakeProcess) -> None:
                              add_flags=["-omp", "-O3"],
                              openmp=True, syntax_only=True)
 
-    assert [call for call in fake_process.calls] == [command]
+    assert call_list(fake_process) == [command]
 
 
 def test_c_with_add_args(fake_process: FakeProcess) -> None:
@@ -309,7 +311,7 @@ def test_c_with_add_args(fake_process: FakeProcess) -> None:
                              add_flags=["-omp", "-O3"],
                              openmp=True)
 
-    assert [call for call in fake_process.calls] == [command, omp_command]
+    assert call_list(fake_process) == [command, omp_command]
 
 
 def test_flags_independent(fake_process: FakeProcess) -> None:
@@ -373,7 +375,7 @@ def test_flags_with_add_arg(fake_process: FakeProcess) -> None:
     # the wrapper flag, then additional flags
     wrapper.compile_file(Path("a.f90"), "a.o", add_flags=["-f"],
                          openmp=False)
-    assert [call for call in fake_process.calls] == [command]
+    assert call_list(fake_process) == [command]
 
 
 def test_flags_without_add_arg(fake_process: FakeProcess) -> None:
@@ -393,7 +395,7 @@ def test_flags_without_add_arg(fake_process: FakeProcess) -> None:
     # the wrapper flag, then additional flags
     # Test if no add_flags are specified:
     wrapper.compile_file(Path("a.f90"), "a.o", openmp=False)
-    assert [call for call in fake_process.calls] == [command]
+    assert call_list(fake_process) == [command]
 
 
 def test_mpi_gcc():

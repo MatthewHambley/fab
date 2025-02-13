@@ -11,9 +11,19 @@ from typing import Dict, List, Optional
 from pytest import fixture
 from pytest_subprocess.fake_process import FakeProcess, ProcessRecorder
 
-from fab.tools.compiler import CCompiler, FortranCompiler
-from fab.tools.linker import Linker
 from fab.tools.tool_box import ToolBox
+
+
+def not_found_callback(process):
+    process.returncode = 1
+    raise FileNotFoundError("Executable file missing")
+
+
+def call_list(mock: FakeProcess) -> List[List[str]]:
+    formed: List[List[str]] = []
+    for call in mock.calls:
+        formed.append([str(arg) for arg in call])
+    return formed
 
 
 class ExtendedRecorder:

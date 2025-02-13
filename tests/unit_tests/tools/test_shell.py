@@ -6,12 +6,12 @@
 """
 Tests Shell tools.
 """
+from pytest_subprocess.fake_process import FakeProcess
+
+from tests.conftest import ExtendedRecorder, call_list, not_found_callback
+
 from fab.tools.category import Category
 from fab.tools.shell import Shell
-
-from tests.conftest import ExtendedRecorder
-
-from pytest_subprocess.fake_process import FakeProcess
 
 
 def test_constructor() -> None:
@@ -28,12 +28,8 @@ def test_check_available(fake_process: FakeProcess) -> None:
     """
     Tests availability functionality.
     """
-    def not_found(process):
-        process.returncode = 1
-        raise FileNotFoundError("Shell executable missing")
-
     fake_process.register(["nish", "-c", "echo hello"])
-    fake_process.register(["nish", "-c", "echo hello"], callback=not_found)
+    fake_process.register(["nish", "-c", "echo hello"], callback=not_found_callback)
 
     shell = Shell("nish")
     assert shell.check_available()
@@ -41,7 +37,7 @@ def test_check_available(fake_process: FakeProcess) -> None:
     # Test behaviour if a runtime error happens:
     assert not shell.check_available()
 
-    assert [call for call in fake_process.calls] == [
+    assert call_list(fake_process) == [
         ['nish', '-c', 'echo hello'],
         ['nish', '-c', 'echo hello']
     ]
