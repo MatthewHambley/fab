@@ -19,11 +19,22 @@ def not_found_callback(process):
     raise FileNotFoundError("Executable file missing")
 
 
-def call_list(mock: FakeProcess) -> List[List[str]]:
-    formed: List[List[str]] = []
-    for call in mock.calls:
-        formed.append([str(arg) for arg in call])
-    return formed
+def call_list(fake_process: FakeProcess) -> List[List[str]]:
+    result: List[List[str]] = []
+    for call in fake_process.calls:
+        result.append([str(arg) for arg in call])
+    return result
+
+
+def arg_list(record: ProcessRecorder) -> List[Dict[str, str]]:
+    result: List[Dict[str, str]] = []
+    for call in record.calls:
+        if call.kwargs is None:
+            args = {}
+        else:
+            args = {key: str(value) for key, value in call.kwargs.items()}
+        result.append(args)
+    return result
 
 
 class ExtendedRecorder:

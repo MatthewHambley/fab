@@ -10,7 +10,7 @@ from pathlib import Path
 
 from pytest_subprocess.fake_process import FakeProcess, ProcessRecorder
 
-from tests.conftest import ExtendedRecorder
+from tests.conftest import ExtendedRecorder, arg_list, call_list
 
 from fab.tools import Category, Ar
 
@@ -48,11 +48,7 @@ def test_check_unavailable(fake_process: FakeProcess) -> None:
                                      stderr="Something went wrong.")
     ar = Ar()
     assert not ar.check_available()
-    assert [call.args for call in recorder.calls] == [["ar", "--version"]]
-    assert recorder.calls[0].kwargs == {'cwd': None,
-                                        'env': None,
-                                        'stderr': -1,
-                                        'stdout': -1}
+    assert call_list(fake_process) == [["ar", "--version"]]
 
 
 def test_ar_create(subproc_record: ExtendedRecorder) -> None:
