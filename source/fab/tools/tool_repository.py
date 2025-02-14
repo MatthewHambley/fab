@@ -75,7 +75,7 @@ class ToolRepository(dict):
         # Add the common shells. While Fab itself does not need this,
         # it is a very convenient tool for user configuration (e.g. to
         # query nc-config etc)
-        for shell_name in ["sh", "bash", "ksh", "dash"]:
+        for shell_name in ["sh", "bash", "ksh", "dash", 'zsh']:
             self.add_tool(Shell(shell_name))
 
         # Now create the potential mpif90 and Cray ftn wrapper
@@ -150,14 +150,14 @@ class ToolRepository(dict):
         '''
 
         if category not in self:
-            raise KeyError(f"Unknown category '{category}' "
-                           f"in ToolRepository.get_tool().")
+            raise KeyError(f"Unknown category '{category}' in"
+                           f" {__name__}.get_tool().")
         all_tools = self[category]
         for tool in all_tools:
             if tool.name == name:
                 return tool
         raise KeyError(f"Unknown tool '{name}' in category '{category}' "
-                       f"in ToolRepository.")
+                       f"in {__name__}.")
 
     def set_default_compiler_suite(self, suite: str):
         '''Sets the default for linker and compilers to be of the
@@ -208,9 +208,9 @@ class ToolRepository(dict):
             for tool in self[category]:
                 if tool.is_available:
                     return tool
-            tool_names = ",".join(i.name for i in self[category])
+            tool_names = ", ".join(i.name for i in self[category])
             raise RuntimeError(f"Can't find available '{category}' tool. "
-                               f"Tools are '{tool_names}'.")
+                               f"Tools are {tool_names}.")
 
         if not isinstance(mpi, bool):
             raise RuntimeError(f"Invalid or missing mpi specification "
