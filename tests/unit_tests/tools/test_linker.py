@@ -20,23 +20,6 @@ from fab.tools import Category, Linker
 from fab.tools.compiler import CCompiler, FortranCompiler
 
 
-@fixture(scope='function')
-def stub_fortran_compiler() -> FortranCompiler:
-    compiler = FortranCompiler('some Fortran compiler', 'sfc', 'stub',
-                               r'([\d.]+)')
-    return compiler
-
-
-@fixture(scope='function')
-def stub_c_compiler() -> CCompiler:
-    """
-    Provides a minial C compiler.
-    """
-    compiler = CCompiler("some C compiler", "scc", "stub",
-                         version_regex=r"([\d.]+)", openmp_flag='-omp')
-    return compiler
-
-
 class TestLinker:
     def test_linker_c(self, stub_c_compiler: CCompiler) -> None:
         """

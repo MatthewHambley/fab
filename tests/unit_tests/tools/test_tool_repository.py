@@ -189,8 +189,8 @@ def test_default_compiler_suite(suite: str, category: Category,
     """
     Tests default compiler management.
     """
-    fake_process.register(['icc', '-V'], stdout='icc (ICC) 1.2.3')
-    fake_process.register(['ifort', '-V'], stdout='ifort (IFORT) 1.2.3')
+    fake_process.register(['icc', '-V'], stdout='icc (ICC) 1.2.3 foo')
+    fake_process.register(['ifort', '-V'], stdout='ifort (IFORT) 1.2.3 foo')
 
     tr = ToolRepository()
     tr.set_default_compiler_suite(suite)

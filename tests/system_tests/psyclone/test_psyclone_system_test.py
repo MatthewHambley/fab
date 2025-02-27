@@ -196,8 +196,9 @@ class TestTransformationScript:
     Check whether transformation script is called with x90 file once
     and whether transformation script is passed to psyclone after '-s'.
 
+    ToDo: Mockkery not appropriate in system tests.
     """
-    def test_transformation_script(self, psyclone_lfric_api):
+    def test_transformation_script(self) -> None:
         psyclone_tool = Psyclone()
         psyclone_tool._version = (2, 4, 0)
         psyclone_tool._is_available = True
@@ -205,7 +206,7 @@ class TestTransformationScript:
         mock_transformation_script = mock.Mock(return_value=__file__)
         with mock.patch('fab.tools.psyclone.Psyclone.run') as mock_run_command:
             mock_transformation_script.return_value = Path(__file__)
-            psyclone_tool.process(api=psyclone_lfric_api,
+            psyclone_tool.process(api='dynamo0.3',
                                   x90_file=Path(__file__),
                                   psy_file=Path(__file__),
                                   alg_file=Path(__file__),
@@ -219,7 +220,7 @@ class TestTransformationScript:
             mock_transformation_script.assert_called_once_with(Path(__file__), None)
             # check transformation_script is passed to psyclone command with '-s'
             mock_run_command.assert_called_with(
-                additional_parameters=['-api', psyclone_lfric_api,
+                additional_parameters=['-api', 'dynamo0.3',
                                        '-opsy',  Path(__file__),
                                        '-oalg', Path(__file__),
                                        '-l', 'all',

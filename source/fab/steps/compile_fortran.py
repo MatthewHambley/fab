@@ -152,7 +152,6 @@ def handle_compiler_args(config: BuildConfig, common_flags=None,
 def compile_pass(config, compiled: Dict[Path, CompiledFile],
                  uncompiled: Set[AnalysedFortran],
                  mp_common_args: MpCommonArgs, mod_hashes: Dict[str, int]):
-
     # what can we compile next?
     compile_next = get_compile_next(compiled, uncompiled)
 

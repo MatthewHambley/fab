@@ -432,7 +432,7 @@ class Ifort(FortranCompiler):
                          openmp_flag="-qopenmp",
                          syntax_only_flag="-syntax-only",
                          availability_argument='-V',
-                         version_regex=r"ifort \(IFORT\) (\d[\d\.]+\d)")
+                         version_regex=r"ifort \(IFORT\) (\d[\d\.]+\d)\s+")
 
 
 # ============================================================================

@@ -6,11 +6,12 @@
 """
 Test for the archive step.
 """
-
+from pathlib import Path
 from unittest import mock
 from unittest.mock import call
 
-import pytest
+from pytest import raises, warns
+from pytest_subprocess.fake_process import FakeProcess
 
 from fab.artefacts import ArtefactSet
 from fab.build_config import BuildConfig
@@ -19,81 +20,82 @@ from fab.tools import Category, ToolBox
 
 
 class TestArchiveObjects:
-    '''Test the achive step.
-    '''
+    """
+    Tests the archive step.
+    """
+    def test_for_exes(self, stub_tool_box: ToolBox,
+                      fs, fake_process: FakeProcess) -> None:
+        """
+        Tests prior to linking an executable.
+        """
+        version_command = ['ar', '--version']
+        fake_process.register(version_command)
+        command1 = ['ar', 'cr', '/fab/proj/build_output/prog1.a', 'prog1.o', 'util.o']
+        fake_process.register(command1)
+        command2 = ['ar', 'cr', '/fab/proj/build_output/prog2.a', 'prog2.o', 'util.o']
+        fake_process.register(command2)
 
-    def test_for_exes(self):
-        '''As used when archiving before linking exes.
-        '''
         targets = ['prog1', 'prog2']
 
-        config = BuildConfig('proj', ToolBox())
+        config = BuildConfig('proj', stub_tool_box, fab_workspace=Path('/fab'))
         for target in targets:
             config.artefact_store.update_dict(
                 ArtefactSet.OBJECT_FILES, target,
-                set([f'{target}.o', 'util.o']))
+                {f'{target}.o', 'util.o'}
+            )
 
-        mock_result = mock.Mock(returncode=0, return_value=123)
-        with mock.patch('fab.tools.tool.subprocess.run',
-                        return_value=mock_result) as mock_run_command, \
-                pytest.warns(UserWarning, match="_metric_send_conn not set, "
-                                                "cannot send metrics"):
+        with warns(UserWarning,
+                   match="_metric_send_conn not set, cannot send metrics"):
             archive_objects(config=config)
-
-        # ensure the correct command line calls were made
-        expected_calls = [
-            call(['ar', 'cr', str(config.build_output / f'{target}.a'),
-                  f'{target}.o', 'util.o'],
-                 capture_output=True, env=None, cwd=None, check=False)
-            for target in targets
-        ]
-        mock_run_command.assert_has_calls(expected_calls)
+        assert [call for call in fake_process.calls] \
+               == [version_command, command1, command2]
 
         # ensure the correct artefacts were created
         assert config.artefact_store[ArtefactSet.OBJECT_ARCHIVES] == {
-            target: set([str(config.build_output / f'{target}.a')])
-            for target in targets}
+            target: {str(config.build_output / f'{target}.a')}
+            for target in targets
+        }
 
-    def test_for_library(self):
-        '''As used when building an object archive or archiving before linking
-        a shared library.
-        '''
+    def test_for_library(self, stub_tool_box: ToolBox,
+                         fs, fake_process: FakeProcess) -> None:
+        """
+        Tests creating an object archiving or prior to a shared library.
+        """
+        fake_process.register(['ar', '--version'])
+        command = ['ar', 'cr', '/fab/proj/build_output/mylib.a',
+                   'util1.o', 'util2.o']
+        record = fake_process.register(command)
 
-        config = BuildConfig('proj', ToolBox())
+        config = BuildConfig('proj', stub_tool_box, fab_workspace=Path('/fab'))
         config.artefact_store.update_dict(
             ArtefactSet.OBJECT_FILES, None, {'util1.o', 'util2.o'})
 
-        mock_result = mock.Mock(returncode=0, return_value=123)
-        with mock.patch('fab.tools.tool.subprocess.run',
-                        return_value=mock_result) as mock_run_command, \
-                pytest.warns(UserWarning, match="_metric_send_conn not set, "
-                                                "cannot send metrics"):
+        with warns(UserWarning,
+                   match="_metric_send_conn not set, cannot send metrics"):
             archive_objects(config=config,
                             output_fpath=config.build_output / 'mylib.a')
-
-        # ensure the correct command line calls were made
-        mock_run_command.assert_called_once_with([
-            'ar', 'cr', str(config.build_output / 'mylib.a'),
-            'util1.o', 'util2.o'],
-            capture_output=True, env=None, cwd=None, check=False)
-
-        # ensure the correct artefacts were created
+        assert [call.args for call in record.calls] == [command]
         assert config.artefact_store[ArtefactSet.OBJECT_ARCHIVES] == {
-            None: set([str(config.build_output / 'mylib.a')])}
+            None: {str(config.build_output / 'mylib.a')}}
 
-    def test_incorrect_tool(self, tool_box):
-        '''Test that an incorrect archive tool is detected
-        '''
-        config = BuildConfig('proj', tool_box)
-        cc = tool_box.get_tool(Category.C_COMPILER, config.mpi, config.openmp)
+    def test_incorrect_tool(self, stub_tool_box: ToolBox) -> None:
+        """
+        Tests wrong tool.
+
+        ToDo: Can this ever happen and monkeying with internal state.
+        """
+        config = BuildConfig('proj', stub_tool_box)
+        cc = stub_tool_box.get_tool(Category.C_COMPILER,
+                                    config.mpi,
+                                    config.openmp)
         # And set its category to be AR
         cc._category = Category.AR
         # Now add this 'ar' tool to the tool box
-        tool_box.add_tool(cc)
+        stub_tool_box.add_tool(cc)
 
-        with pytest.raises(RuntimeError) as err:
+        with raises(RuntimeError) as err:
             archive_objects(config=config,
                             output_fpath=config.build_output / 'mylib.a')
-        assert ("Unexpected tool 'mock_c_compiler' of type '<class "
-                "'fab.tools.compiler.CCompiler'>' instead of Ar"
-                in str(err.value))
+        assert str(err.value) == \
+               "Unexpected tool 'some C compiler' of type '<class " \
+               "'fab.tools.compiler.CCompiler'>' instead of Ar"

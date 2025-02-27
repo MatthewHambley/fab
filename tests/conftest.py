@@ -11,6 +11,8 @@ from typing import Dict, List, Optional
 from pytest import fixture
 from pytest_subprocess.fake_process import FakeProcess, ProcessRecorder
 
+from fab.tools.compiler import CCompiler, FortranCompiler
+from fab.tools.linker import Linker
 from fab.tools.tool_box import ToolBox
 
 
@@ -80,18 +82,47 @@ def subproc_record(fake_process: FakeProcess) -> ExtendedRecorder:
     return ExtendedRecorder(fake_process.register([FakeProcess.any()]))
 
 
-@fixture(name="tool_box")
-def fixture_tool_box(stub_c_compiler, mock_fortran_compiler, mock_linker):
-    """Provides a tool box with a mock Fortran and a mock C compiler."""
-    tool_box = ToolBox()
-    tool_box.add_tool(stub_c_compiler)
-    tool_box.add_tool(mock_fortran_compiler)
-    tool_box.add_tool(mock_linker)
-    return tool_box
+@fixture(scope='function')
+def stub_fortran_compiler() -> FortranCompiler:
+    compiler = FortranCompiler('some Fortran compiler', 'sfc', 'stub',
+                               r'([\d.]+)')
+    return compiler
 
 
-@fixture(name="psyclone_lfric_api")
-def fixture_psyclone_lfric_api():
-    """A simple fixture to provide the name of the LFRic API for
-    PSyclone."""
-    return "dynamo0.3"
+@fixture(scope='function')
+def stub_c_compiler() -> CCompiler:
+    """
+    Provides a minial C compiler.
+    """
+    compiler = CCompiler("some C compiler", "scc", "stub",
+                         version_regex=r"([\d.]+)", openmp_flag='-omp')
+    return compiler
+
+
+@fixture(scope='function')
+def stub_linker(stub_c_compiler) -> Linker:
+    """
+    Provides a minimal linker.
+    """
+    linker = Linker(stub_c_compiler, 'sln', 'stub')
+    return linker
+
+
+def return_true():
+    return True
+
+@fixture(scope='function')
+def stub_tool_box(stub_fortran_compiler,
+                  stub_c_compiler,
+                  stub_linker,
+                  monkeypatch) -> ToolBox:
+    """
+    Provides a minimal toolbox containing just a Fortran compiler and a linker.
+    """
+    monkeypatch.setattr(stub_fortran_compiler, 'check_available', return_true)
+    monkeypatch.setattr(stub_c_compiler, 'check_available', return_true)
+    toolbox = ToolBox()
+    toolbox.add_tool(stub_fortran_compiler)
+    toolbox.add_tool(stub_c_compiler)
+    toolbox.add_tool(stub_linker)
+    return toolbox
