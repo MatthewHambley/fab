@@ -104,12 +104,13 @@ def stub_linker(stub_c_compiler) -> Linker:
     """
     Provides a minimal linker.
     """
-    linker = Linker(stub_c_compiler, 'sln', 'stub')
+    linker = Linker(stub_c_compiler, None, 'sln')
     return linker
 
 
 def return_true():
     return True
+
 
 @fixture(scope='function')
 def stub_tool_box(stub_fortran_compiler,

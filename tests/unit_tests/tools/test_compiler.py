@@ -88,10 +88,12 @@ class TestCompiler:
         fake_process.register(command)
 
         fc = Compiler("some fortran", "sfortran", "some",
-                      version_regex=r'', category=Category.FORTRAN_COMPILER,
+                      version_regex=r'',
+                      category=Category.FORTRAN_COMPILER,
+                      mpi=False,
                       **argument)
 
-        fc.compile_file(Path("a.f90"), "a.o", openmp=control)
+        fc.compile_file(Path("a.f90"), Path("a.o"), openmp=control)
 
         assert call_list(fake_process) \
             == [command]
@@ -121,17 +123,17 @@ class TestCCompiler:
         Tests OpenMP support.
         """
         cc = CCompiler("some c", "scc", "some",
-                       openmp_flag="-omp", version_regex=None)
+                       openmp_flag="-omp", version_regex=r'([\d.]+)')
         assert cc.openmp_flag == "-omp"
         assert cc.openmp
 
         cc = CCompiler("some c", "scc", "some",
-                       openmp_flag=None, version_regex=None)
+                       openmp_flag=None, version_regex=r'([\d.]+)')
         assert cc.openmp_flag == ""
         assert not cc.openmp
 
         cc = CCompiler("some c", "scc", "some",
-                       version_regex=None)
+                       version_regex=r'([\d.]+)')
         assert cc.openmp_flag == ""
         assert not cc.openmp
 
@@ -165,10 +167,11 @@ class TestFortranCompiler:
     )
     def test_openmp_construction(self,
                                  argument: Dict[str, Optional[str]],
-                                 expected:str) -> None:
+                                 expected: str) -> None:
         fc = FortranCompiler("some fortran", "sfortran", "some",
                              module_folder_flag="-mod-dir",
-                             version_regex=None,
+                             version_regex=r'([\d.]+)',
+                             mpi=False,
                              **argument)
         assert fc.openmp is expected
         if expected:
@@ -192,12 +195,11 @@ class TestFortranCompiler:
         """
         fc = FortranCompiler("some fortran", "sfortran", "some",
                              version_regex=r'([\d.]+)])',
-                             openmp_flag="-omp", module_folder_flag="-mod-dir",
+                             openmp_flag="-omp",
+                             module_folder_flag="-mod-dir",
+                             mpi=False,
                              **argument)
         assert fc.has_syntax_only is expected
-        if expected:
-            # ToDo: Clearly we shouldn't be dredging around in private members.
-            assert fc._syntax_only_flag == argument['syntax_only_flag']
 
     def test_module_dir_args(self, fake_process: FakeProcess) -> None:
         """
@@ -209,10 +211,10 @@ class TestFortranCompiler:
         fc = FortranCompiler("test fortran", "tfortran", suite="test",
                              version_regex=r'([\d.]+)',
                              module_folder_flag='-mod-dir')
-        fc.set_module_output_path("/module_out")
+        fc.set_module_output_path(Path("/module_out"))
 
         with warns(UserWarning, match="Removing managed flag"):
-            fc.compile_file(Path("a.f90"), "a.o", openmp=False,
+            fc.compile_file(Path("a.f90"), Path("a.o"), openmp=False,
                             add_flags=["-mod-dir/b", "-O3"])
         assert call_list(fake_process) == [command]
 
@@ -225,7 +227,7 @@ class TestFortranCompiler:
         with warns(UserWarning,
                    match="explicitly provided. OpenMP should be enabled in "
                          "the BuildConfiguration"):
-            fc.compile_file(Path("a.f90"), "a.o", add_flags=["-omp"],
+            fc.compile_file(Path("a.f90"), Path("a.o"), add_flags=["-omp"],
                             openmp=True)
         assert call_list(fake_process) == [command]
 
@@ -241,7 +243,7 @@ class TestFortranCompiler:
         full_string = f'Some {version_string} Fortran compiler'
         recorder = fake_process.register(['sfortran', '--version'],
                                          stdout=full_string)
-        compiler = FortranCompiler('some fortran', Path('sfortran'), 'some',
+        compiler = FortranCompiler('some fortran', 'sfortran', 'some',
                                    r'^Some ([\d.]+) Fortran')
         assert compiler.get_version_string() == version_string
         assert compiler.get_version() == version
@@ -256,7 +258,7 @@ class TestFortranCompiler:
         version_string = "Some 666 Fortran compiler"
         recorder = fake_process.register(['sfortran', '--version'],
                                          stdout=version_string)
-        compiler = FortranCompiler('some fortran', Path('sfortran'), 'some',
+        compiler = FortranCompiler('some fortran', 'sfortran', 'some',
                                    r'^Some ([\d.]+) Fortran')
         with raises(RuntimeError) as err:
             compiler.get_version()
@@ -279,7 +281,7 @@ class TestFortranCompiler:
         """
         recorder = fake_process.register(['sfortran', '--version'],
                                          stdout=version_string)
-        compiler = FortranCompiler('some fortran', Path('sfortran'), 'some',
+        compiler = FortranCompiler('some fortran', 'sfortran', 'some',
                                    r'Some ([\d.]+) Fortran')
         with raises(RuntimeError) as err:
             compiler.get_version()
@@ -296,7 +298,7 @@ class TestFortranCompiler:
         """
         recorder = fake_process.register(['sfortran', '--version'],
                                          returncode=1)
-        compiler = FortranCompiler('some fortran', Path('sfortran'), 'some',
+        compiler = FortranCompiler('some fortran', 'sfortran', 'some',
                                    r'Some ([\d.]+) Fortran')
         with raises(RuntimeError) as err:
             compiler.get_version()
@@ -311,7 +313,7 @@ class TestFortranCompiler:
         fake_process.keep_last_process(True)
         recorder = fake_process.register(['sfortran', '--version'],
                                          stdout="1.2.3")
-        compiler = FortranCompiler('some fortran', Path('sfortran'), 'some',
+        compiler = FortranCompiler('some fortran', 'sfortran', 'some',
                                    r'([\d.]+)')
         assert compiler.get_version() == (1, 2, 3)
         assert compiler.get_version() == (1, 2, 3)
@@ -328,7 +330,7 @@ class TestFortranCompiler:
                               returncode=1)
         fake_process.register(['sfortran', '--version'],
                               stdout='4.5.6')
-        compiler = FortranCompiler('some fortran', Path('sfortran'), 'some',
+        compiler = FortranCompiler('some fortran', 'sfortran', 'some',
                                    r'([\d.]+)')
         with raises(RuntimeError):
             compiler.get_version()
@@ -347,10 +349,10 @@ class TestFortranCompiler:
         fc = FortranCompiler("some fortran", "sfortran", suite="some",
                              version_regex=r'([\d.]+)',
                              module_folder_flag="-mod-dir")
-        fc.set_module_output_path("/module_out")
+        fc.set_module_output_path(Path("/module_out"))
         # ToDo: Warning - private member access.
         assert fc._module_output_path == "/module_out"
-        fc.compile_file(Path("a.f90"), "a.o", openmp=False)
+        fc.compile_file(Path("a.f90"), Path("a.o"), openmp=False)
         assert call_list(fake_process) \
             == [command]
 

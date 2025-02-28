@@ -62,7 +62,7 @@ def test_compile_c_wrong_compiler(content, fake_process: FakeProcess) -> None:
     # C compiler
     mp_common_args = Mock(config=config)
     with raises(RuntimeError) as err:
-        _compile_file((None, mp_common_args))
+        _compile_file((Mock(), mp_common_args))
     assert str(err.value) == "Unexpected tool 'some C compiler' of category " \
                              "'FORTRAN_COMPILER' instead of CCompiler"
 

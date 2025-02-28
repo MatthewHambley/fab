@@ -6,6 +6,8 @@
 """
 Tests RSync file tree synchronisation tool.
 """
+from pathlib import Path
+
 from pytest_subprocess.fake_process import FakeProcess
 
 from tests.conftest import call_list, not_found_callback
@@ -56,10 +58,10 @@ def test_rsync_create(fake_process: FakeProcess) -> None:
     rsync = Rsync()
 
     # Test 1: src with /
-    rsync.execute(src="/src/", dst="/dst")
+    rsync.execute(src=Path("/src/"), dst=Path("/dst"))
 
     # Test 2: src without /
-    rsync.execute(src="/src", dst="/dst")
+    rsync.execute(src=Path("/src"), dst=Path("/dst"))
 
     assert call_list(fake_process) == [
         with_command, without_command

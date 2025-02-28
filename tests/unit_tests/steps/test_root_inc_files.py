@@ -58,7 +58,7 @@ class TestRootIncFiles:
              warns(DeprecationWarning,
                    match="RootIncFiles is deprecated as .inc files are due to be removed."):
                 root_inc_files(config)
-        filetree: List[str] = []
+        filetree: List[Path] = []
         for path, _, files in Path('/').walk():
             for file in files:
                 filetree.append(path / file)

@@ -26,7 +26,7 @@ def test_wrapping() -> None:
     """
     Tests wrapping functionality.
     """
-    compiler = FortranCompiler('some fortran', Path('sfortran'), 'some',
+    compiler = FortranCompiler('some fortran', 'sfortran', 'some',
                                r'([\d.]+)')
     wrapper = CompilerWrapper('some wrapper', 'wrapf', compiler)
     assert wrapper.compiler is compiler
@@ -39,7 +39,7 @@ def test_version_and_caching(fake_process: FakeProcess) -> None:
     fake_process.register(['sfortran', '--version'], stdout='2.3.4')
     fake_process.register(['wrapf', '--version'], stdout='2.3.4')
 
-    compiler = FortranCompiler('some fortran', Path('sfortran'), 'some',
+    compiler = FortranCompiler('some fortran', 'sfortran', 'some',
                                r'([\d.]+)')
     wrapper = CompilerWrapper('some wrapper', 'wrapf', compiler)
 
@@ -210,7 +210,7 @@ def test_module_output_fortran():
     """
     compiler = FortranCompiler('some compiler', Path('compiler'), 'some',
                                r'([\d.]+)')
-    wrapper = CompilerWrapper('some wrapper', Path('swrap'), compiler)
+    wrapper = CompilerWrapper('some wrapper', 'swrap', compiler)
 
     wrapper.set_module_output_path("/somewhere")
     # ToDo: Inquiery of "private" member smells.
@@ -224,7 +224,7 @@ def test_module_output_c():
     """
     compiler = CCompiler('some compiler', Path('compiler'), 'some',
                          r'([\d.]+)')
-    wrapper = CompilerWrapper('some wrapper', Path('swrap'), compiler)
+    wrapper = CompilerWrapper('some wrapper', 'swrap', compiler)
 
     with raises(RuntimeError) as err:
         wrapper.set_module_output_path("/tmp")
@@ -241,13 +241,13 @@ def test_fortran_with_add_args(fake_process: FakeProcess) -> None:
                'a.f90', '-o', 'a.o']
     fake_process.register(command)
 
-    compiler = FortranCompiler('some fortran', Path('sfort'), 'some',
+    compiler = FortranCompiler('some fortran', 'sfort', 'some',
                                r'([\d.]+)', module_folder_flag='-J',
                                syntax_only_flag='-sox')
-    wrapper = CompilerWrapper('some fortran wrapper', Path('wrapf'), compiler)
-    wrapper.set_module_output_path("/module_out")
+    wrapper = CompilerWrapper('some fortran wrapper', 'wrapf', compiler)
+    wrapper.set_module_output_path(Path("/module_out"))
     with warns(UserWarning, match="Removing managed flag"):
-        wrapper.compile_file(Path("a.f90"), "a.o",
+        wrapper.compile_file(Path("a.f90"), Path("a.o"),
                              add_flags=["-J/b", "-O3"], openmp=False,
                              syntax_only=True)
     # Notice that "-J/b" has been removed
@@ -263,15 +263,15 @@ def test_fortran_with_add_args_openmp(fake_process: FakeProcess) -> None:
     command = ['wrapf', '-c', '-omp', '-omp', '-O3', '-sox',
                '-mod', '/module_out', 'a.f90', '-o', 'a.o']
     fake_process.register(command)
-    compiler = FortranCompiler('some fortran', Path('sfort'), 'some',
+    compiler = FortranCompiler('some fortran', 'sfort', 'some',
                                r'([\d.]+)', openmp_flag='-omp',
                                syntax_only_flag='-sox', module_folder_flag='-mod')
-    wrapper = CompilerWrapper('some fortran wrapper', Path('wrapf'), compiler)
-    wrapper.set_module_output_path("/module_out")
+    wrapper = CompilerWrapper('some fortran wrapper', 'wrapf', compiler)
+    wrapper.set_module_output_path(Path("/module_out"))
     with warns(UserWarning,
                match="explicitly provided. OpenMP should be "
                      "enabled in the BuildConfiguration"):
-        wrapper.compile_file(Path("a.f90"), "a.o",
+        wrapper.compile_file(Path("a.f90"), Path("a.o"),
                              add_flags=["-omp", "-O3"],
                              openmp=True, syntax_only=True)
 
@@ -288,17 +288,17 @@ def test_c_with_add_args(fake_process: FakeProcess) -> None:
     fake_process.register(command)
     fake_process.register(omp_command)
 
-    compiler = CCompiler('some c', Path('sc'), 'some', r'([\d.]+)',
+    compiler = CCompiler('some c', 'sc', 'some', r'([\d.]+)',
                          openmp_flag='-omp')
-    wrapper = CompilerWrapper('some c wrapper', Path('wrapc'), compiler)
+    wrapper = CompilerWrapper('some c wrapper', 'wrapc', compiler)
 
-    wrapper.compile_file(Path("a.f90"), "a.o", openmp=False,
+    wrapper.compile_file(Path("a.f90"), Path("a.o"), openmp=False,
                          add_flags=["-O3"])
 
     # Invoke C compiler with syntax-only flag (which is only supported
     # by Fortran compilers), which should raise an exception.
     with raises(RuntimeError) as err:
-        wrapper.compile_file(Path("a.f90"), "a.o", openmp=False,
+        wrapper.compile_file(Path("a.f90"), Path("a.o"), openmp=False,
                              add_flags=["-O3"], syntax_only=True)
     assert str(err.value).startswith(
         "Syntax-only cannot be used with compiler 'some c wrapper'.")
@@ -307,7 +307,7 @@ def test_c_with_add_args(fake_process: FakeProcess) -> None:
     with warns(UserWarning,
                match="explicitly provided. OpenMP should be "
                      "enabled in the BuildConfiguration"):
-        wrapper.compile_file(Path("a.f90"), "a.o",
+        wrapper.compile_file(Path("a.f90"), Path("a.o"),
                              add_flags=["-omp", "-O3"],
                              openmp=True)
 
@@ -320,7 +320,7 @@ def test_flags_independent(fake_process: FakeProcess) -> None:
     """
     compiler = Compiler('some comp', Path('scomp'), 'some',
                         r'([\d.]+)', category=Category.C_COMPILER)
-    wrapper = CompilerWrapper('some wrapper', Path('wrapper'), compiler)
+    wrapper = CompilerWrapper('some wrapper', "wrapper", compiler)
     assert compiler.flags == []
     assert wrapper.flags == []
 
@@ -347,7 +347,7 @@ def test_openmp_flags(openmp_argument: Optional[str]) -> None:
     compiler = Compiler('some comp', Path('scomp'), 'some',
                         r'([\d.]+)', Category.C_COMPILER,
                         openmp_flag=openmp_argument)
-    wrapper = CompilerWrapper('some wrapper', Path('swrap'), compiler)
+    wrapper = CompilerWrapper('some wrapper', 'swrap', compiler)
 
     assert compiler.openmp is (openmp_argument is not None)
     assert compiler.openmp_flag == (openmp_argument or '')
@@ -367,13 +367,13 @@ def test_flags_with_add_arg(fake_process: FakeProcess) -> None:
     compiler = Compiler('some compiler', Path('scomp'), 'some',
                         r'([\d.]+)', category=Category.C_COMPILER)
     compiler.add_flags(["-a", "-b"])
-    wrapper = CompilerWrapper('some wrapper', Path('wrapper'), compiler)
+    wrapper = CompilerWrapper('some wrapper', "wrapper", compiler)
     wrapper.add_flags(["-d", "-e"])
 
     # Check that the flags are assembled in the right order in the
     # actual compiler call: first the wrapper compiler flag, then
     # the wrapper flag, then additional flags
-    wrapper.compile_file(Path("a.f90"), "a.o", add_flags=["-f"],
+    wrapper.compile_file(Path("a.f90"), Path("a.o"), add_flags=["-f"],
                          openmp=False)
     assert call_list(fake_process) == [command]
 
@@ -394,7 +394,7 @@ def test_flags_without_add_arg(fake_process: FakeProcess) -> None:
     # actual compiler call: first the wrapper compiler flag, then
     # the wrapper flag, then additional flags
     # Test if no add_flags are specified:
-    wrapper.compile_file(Path("a.f90"), "a.o", openmp=False)
+    wrapper.compile_file(Path("a.f90"), Path("a.o"), openmp=False)
     assert call_list(fake_process) == [command]
 
 

@@ -12,7 +12,7 @@ Classes and helper functions related to the dependency tree, as created by the a
 from abc import ABC
 import logging
 from pathlib import Path
-from typing import Set, Dict, Iterable, List, Union, Optional, Any
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Set, Union
 
 from fab.parse import AnalysedFile
 
@@ -98,7 +98,7 @@ class AnalysedDependent(AnalysedFile, ABC):
         return result
 
 
-def extract_sub_tree(source_tree: Dict[Path, AnalysedDependent], root: Path, verbose=False)\
+def extract_sub_tree(source_tree: Mapping[Path, AnalysedDependent], root: Path, verbose=False)\
         -> Dict[Path, AnalysedDependent]:
     """
     Extract the subtree required to build the target, from the full source tree of all analysed source files.
@@ -122,7 +122,7 @@ def extract_sub_tree(source_tree: Dict[Path, AnalysedDependent], root: Path, ver
     return result
 
 
-def _extract_sub_tree(src_tree: Dict[Path, AnalysedDependent], key: Path,
+def _extract_sub_tree(src_tree: Mapping[Path, AnalysedDependent], key: Path,
                       dst_tree: Dict[Path, AnalysedDependent], missing: Set[Path], verbose: bool, indent: int = 0):
     # is this node already in the sub tree?
     if key in dst_tree:

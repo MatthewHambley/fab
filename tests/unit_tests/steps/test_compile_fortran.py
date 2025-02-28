@@ -58,7 +58,7 @@ def test_compile_cc_wrong_compiler(stub_tool_box,
     # Fortran compiler
     mp_common_args = Mock(config=config)
     with raises(RuntimeError) as err:
-        process_file((None, mp_common_args))
+        process_file((Mock(), mp_common_args))
     assert str(err.value) \
            == "Unexpected tool 'some Fortran compiler' of category " \
               + "'C_COMPILER' instead of FortranCompiler"
@@ -235,6 +235,7 @@ class TestProcessFile:
 
         # check the correct artefacts were returned
         pb = mp_common_args.config.prebuild_folder
+        assert artefacts is not None
         assert set(artefacts) == {
             pb / 'foofile.1f221d889.o',
             pb / 'mod_def_2.17b90457f.mod',
@@ -284,6 +285,7 @@ class TestProcessFile:
 
         # check the correct artefacts were returned
         pb = mp_common_args.config.prebuild_folder
+        assert artefacts is not None
         assert set(artefacts) == {
             pb / 'foofile.1f221d889.o',
             pb / 'mod_def_2.17b90457f.mod',
@@ -334,6 +336,7 @@ class TestProcessFile:
 
         # check the correct artefacts were returned
         pb = mp_common_args.config.prebuild_folder
+        assert artefacts is not None
         assert set(artefacts) == {
             pb / 'foofile.1f221d88a.o',
             pb / 'mod_def_2.17b904580.mod',
@@ -386,6 +389,7 @@ class TestProcessFile:
 
         # check the correct artefacts were returned
         pb = mp_common_args.config.prebuild_folder
+        assert artefacts is not None
         assert set(artefacts) == {
             pb / 'foofile.1f2e43e5e.o',
             pb / 'mod_def_2.17b90457f.mod',
@@ -438,6 +442,7 @@ class TestProcessFile:
 
         # check the correct artefacts were returned
         pb = mp_common_args.config.prebuild_folder
+        assert artefacts is not None
         assert set(artefacts) == {
             pb / 'foofile.1f221d88a.o',
             pb / 'mod_def_2.17b90457f.mod',
@@ -486,6 +491,7 @@ class TestProcessFile:
 
         # check the correct artefacts were returned
         pb = mp_common_args.config.prebuild_folder
+        assert artefacts is not None
         assert set(artefacts) == {
             pb / 'foofile.1f221d889.o',
             pb / 'mod_def_2.17b90457f.mod',
@@ -540,6 +546,7 @@ class TestProcessFile:
 
         # check the correct artefacts were returned
         pb = mp_common_args.config.prebuild_folder
+        assert artefacts is not None
         assert set(artefacts) == {
             pb / f'foofile.{obj_hash}.o',
             pb / f'mod_def_2.{mod_hash}.mod',
@@ -558,8 +565,11 @@ class TestGetModHashes:
         Path('/fab_workspace/proj/build_output').mkdir(parents=True)
         Path('/fab_workspace/proj/build_output/foo.mod').write_text("Foo file.")
         Path('/fab_workspace/proj/build_output/bar.mod').write_text("Bar file.")
+        Path('foo_mod.f90').touch()
         analysed_files = {
-            Mock(module_defs=['foo', 'bar']),
+            AnalysedFortran('foo_mod.f90',
+                            module_defs=['foo', 'bar'],
+                            symbol_defs=['foo', 'bar'])
         }
 
         config = BuildConfig('proj', stub_tool_box,
