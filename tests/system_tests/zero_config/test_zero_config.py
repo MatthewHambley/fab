@@ -1,11 +1,9 @@
 from pathlib import Path
 from shutil import copytree
-from subprocess import run
 
 from pytest import warns
 
 from fab.cli import cli_fab
-from fab.tools import ToolRepository
 
 
 class TestZeroConfig:

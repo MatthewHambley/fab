@@ -6,7 +6,6 @@
 """
 Exercises the compiler step.
 """
-import os
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -79,14 +78,13 @@ class TestCompileC:
         config, _ = content
 
         monkeypatch.setenv('CFLAGS', '-Denv_flag')
-        
+
         fake_process.register(['scc', '--version'], stdout='1.2.3')
         fake_process.register([
             'scc', '-c', '-Denv_flag', '-I', 'foo/include',
             '-Dhello', 'foo.c',
             '-o', str(config.prebuild_folder / 'foo.12df783ad.o')
         ])
-        compiler = config.tool_box[Category.C_COMPILER]
         with warns(UserWarning, match="_metric_send_conn not set, "
                                       "cannot send metrics"):
             compile_c(config=config,
@@ -110,7 +108,6 @@ class TestCompileC:
             'scc', '-c', 'foo.c',
             '-o', str(config.build_output / '_prebuild/foo.f4399d2d.o')
         ], returncode=1)
-        compiler = config.tool_box[Category.C_COMPILER]
         with raises(RuntimeError):
             compile_c(config=config)
 

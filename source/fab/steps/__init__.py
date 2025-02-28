@@ -7,7 +7,7 @@
 Predefined build steps with sensible defaults.
 """
 import multiprocessing
-from typing import Any, Iterable, Optional, Union
+from typing import Iterable, Optional, Union
 
 from fab.metrics import send_metric
 from fab.util import by_type, TimerLogger

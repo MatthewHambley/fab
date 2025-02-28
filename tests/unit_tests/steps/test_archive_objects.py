@@ -7,8 +7,6 @@
 Test for the archive step.
 """
 from pathlib import Path
-from unittest import mock
-from unittest.mock import call
 
 from pytest import raises, warns
 from pytest_subprocess.fake_process import FakeProcess

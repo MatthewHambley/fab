@@ -6,8 +6,7 @@ from pytest import fixture, warns
 
 from fab.build_config import BuildConfig
 from fab.dep_tree import AnalysedDependent
-from fab.parse.fortran import (AnalysedFortran, FortranParserWorkaround,
-                               file_checksum)
+from fab.parse.fortran import AnalysedFortran, FortranParserWorkaround
 from fab.steps.analyse import (_add_manual_results, _add_unreferenced_deps,
                                _gen_file_deps, _gen_symbol_table, _parse_files)
 from fab.tools import ToolBox

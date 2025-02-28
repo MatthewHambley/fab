@@ -29,6 +29,7 @@ class TestCompiler:
     """
     Tests base compiler tool.
     """
+
     def test_hash(self, fake_process: FakeProcess) -> None:
         """
         Tests hashing.
@@ -54,8 +55,8 @@ class TestCompiler:
         # A change in the name must change the hash, again:
         #
         cc_three = Compiler('new compiler', Path('testc'), 'test',
-                          version_regex=r'([\d.]+)',
-                          category=Category.FORTRAN_COMPILER)
+                            version_regex=r'([\d.]+)',
+                            category=Category.FORTRAN_COMPILER)
         third_hash = cc_three.get_hash()
         assert third_hash not in (first_hash, second_hash)
 
@@ -96,13 +97,14 @@ class TestCompiler:
         fc.compile_file(Path("a.f90"), Path("a.o"), openmp=control)
 
         assert call_list(fake_process) \
-            == [command]
+               == [command]
 
 
 class TestCCompiler:
     """
     Tests base C compiler tool.
     """
+
     def test_construction(self) -> None:
         """
         Tests Construction.
@@ -142,6 +144,7 @@ class TestFortranCompiler:
     """
     Tests base Fortran compiler tool.
     """
+
     def test_construction(self) -> None:
         """
         Tests basic Fortran compiler construction.
@@ -296,8 +299,8 @@ class TestFortranCompiler:
         """
         Tests version retrieval failure.
         """
-        recorder = fake_process.register(['sfortran', '--version'],
-                                         returncode=1)
+        fake_process.register(['sfortran', '--version'],
+                              returncode=1)
         compiler = FortranCompiler('some fortran', 'sfortran', 'some',
                                    r'Some ([\d.]+) Fortran')
         with raises(RuntimeError) as err:
@@ -354,13 +357,14 @@ class TestFortranCompiler:
         assert fc._module_output_path == "/module_out"
         fc.compile_file(Path("a.f90"), Path("a.o"), openmp=False)
         assert call_list(fake_process) \
-            == [command]
+               == [command]
 
 
 class TestGcc:
     """
     Tests GCC tool.
     """
+
     def test_check_available(self, fake_process: FakeProcess) -> None:
         """
         Tests availability check.
@@ -464,6 +468,7 @@ class TestGFortran:
     """
     Tests the Fortran component of the Gnu Compiler Collection.
     """
+
     def test_constructor(self):
         """
         Tests the default constructor
@@ -546,8 +551,8 @@ class TestGFortran:
             ifort (IFORT) 14.0.3 20140422
             Copyright (C) 1985-2014 Intel Corporation.  All rights reserved.
             """)
-        recorder =fake_process.register(['gfortran', '--version'],
-                                        stdout=version_string)
+        recorder = fake_process.register(['gfortran', '--version'],
+                                         stdout=version_string)
         gfortran = Gfortran()
         with raises(RuntimeError) as err:
             gfortran.get_version()
@@ -571,6 +576,7 @@ class TestIcc:
     """
     Tests the old Intel C compiler tool.
     """
+
     def test_icc(self):
         """
         Tests the default constructor.
@@ -617,6 +623,7 @@ class TestIFort:
     """
     Test the old Intel Fortran compiler tool.
     """
+
     def test_constructor(self) -> None:
         """
         Tests the default constructor.
@@ -699,8 +706,8 @@ class TestIFort:
             ifort (IFORT) {version} 20140422
             Copyright (C) 1985-2014 Intel Corporation.  All rights reserved.
             """)
-        recorder = fake_process.register(['ifort', '-V'],
-                                         stdout=version_string)
+        fake_process.register(['ifort', '-V'],
+                              stdout=version_string)
         ifort = Ifort()
         with raises(RuntimeError) as err:
             ifort.get_version()
@@ -713,6 +720,7 @@ class TestIcx:
     """
     Tests the Icx C compiler tool.
     """
+
     def test_icx(self) -> None:
         """
         Tests default constructor.
@@ -763,6 +771,7 @@ class TestIfx:
     """
     Tests Ifx Fortran tool.
     """
+
     def test_constructor(self) -> None:
         """
         Tests default constructor.
@@ -811,6 +820,7 @@ class TestNvC:
     """
     Tests the nVidia C tool.
     """
+
     def test_constructor(self) -> None:
         """
         Tests the default constructor.
@@ -842,7 +852,7 @@ Copyright (c) 2022, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
             icc (ICC) 2021.10.0 20230609
             Copyright (C) 1985-2023 Intel Corporation.  All rights reserved.
             """)
-        recorder = fake_process.register(['nvc', '-V'], stdout=version_string)
+        fake_process.register(['nvc', '-V'], stdout=version_string)
         nvc = Nvc()
         with raises(RuntimeError) as err:
             nvc.get_version()
@@ -855,6 +865,7 @@ class TestNvFortran:
     """
     Tests nVidia Fortran tool.
     """
+
     def test_nvfortran(self):
         """
         Tests default constructor.
@@ -904,6 +915,7 @@ class TestCrayC:
     """
     Tests Cray C tool.
     """
+
     def test_default_constructor(self) -> None:
         """
         Tests constructing a Craycc object without arguments.
@@ -917,7 +929,7 @@ class TestCrayC:
     @mark.parametrize(['version_string', 'version'], [
         ["Cray C : Version 8.7.0  Tue Jul 23, 2024  07:39:46", (8, 7, 0)],
         [
-"""
+            """
 Cray clang version 15.0.1  (66f7391d6a03cf932f321b9f6b1d8612ef5f362c)
 
 Target: x86_64-unknown-linux-gnu
@@ -969,6 +981,7 @@ class TestCrayFortran:
     """
     Tests Cray Fortran tool.
     """
+
     def test_default_construction(self) -> None:
         """
         Tests object constructs correctly.

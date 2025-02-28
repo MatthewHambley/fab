@@ -57,7 +57,7 @@ class TestRootIncFiles:
                    match="_metric_send_conn not set, cannot send metrics"), \
              warns(DeprecationWarning,
                    match="RootIncFiles is deprecated as .inc files are due to be removed."):
-                root_inc_files(config)
+            root_inc_files(config)
         filetree: List[Path] = []
         for path, _, files in Path('/').walk():
             for file in files:

@@ -12,7 +12,7 @@ from pytest_subprocess.fake_process import FakeProcess
 
 from fab.parse.x90 import AnalysedX90
 from fab.steps.psyclone import _check_override, _gen_prebuild_hash, MpCommonArgs
-from fab.util import file_checksum, string_checksum
+from fab.util import string_checksum
 
 
 class TestGenPrebuildHash:

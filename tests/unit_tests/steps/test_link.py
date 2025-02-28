@@ -13,7 +13,7 @@ from pytest_subprocess.fake_process import FakeProcess
 
 from tests.conftest import call_list
 
-from fab.artefacts import ArtefactSet, ArtefactStore
+from fab.artefacts import ArtefactSet
 from fab.build_config import BuildConfig
 from fab.steps.link import link_exe
 from fab.tools.compiler import FortranCompiler

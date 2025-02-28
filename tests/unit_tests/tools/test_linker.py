@@ -11,7 +11,7 @@ import warnings
 
 from tests.conftest import ExtendedRecorder
 
-from pytest import fixture, mark, raises, warns
+from pytest import mark, raises, warns
 from pytest_subprocess.fake_process import FakeProcess
 
 from tests.conftest import call_list

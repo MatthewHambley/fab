@@ -8,7 +8,6 @@ from pathlib import Path
 from pytest import raises, warns
 from pytest_subprocess.fake_process import FakeProcess
 
-from fab.artefacts import ArtefactSet, ArtefactStore, ArtefactsGetter
 from fab.build_config import BuildConfig
 from fab.steps.preprocess import preprocess_fortran
 from fab.tools.category import Category

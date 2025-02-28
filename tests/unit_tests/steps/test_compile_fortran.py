@@ -4,7 +4,6 @@ from unittest.mock import Mock
 
 from pytest import fixture, mark, raises, warns
 from pytest_subprocess.fake_process import FakeProcess
-from pyfakefs.fake_filesystem_unittest import Patcher
 
 from fab.artefacts import ArtefactSet, ArtefactStore
 from fab.build_config import BuildConfig, FlagsConfig
@@ -66,8 +65,8 @@ def test_compile_cc_wrong_compiler(stub_tool_box,
     with raises(RuntimeError) as err:
         handle_compiler_args(config)
     assert str(err.value) \
-            == "Unexpected tool 'some Fortran compiler' of category " \
-               + "'C_COMPILER' instead of FortranCompiler"
+        == "Unexpected tool 'some Fortran compiler' of category " \
+           + "'C_COMPILER' instead of FortranCompiler"
 
 
 class TestCompilePass:
@@ -82,7 +81,7 @@ class TestCompilePass:
         """
         a, b, c = analysed_files
 
-        fake_process.register(['sfc', '--version'], stdout = '1.2.3')
+        fake_process.register(['sfc', '--version'], stdout='1.2.3')
         fake_process.register(['sfc', fake_process.any()])
 
         uncompiled = {a, b}
@@ -90,13 +89,6 @@ class TestCompilePass:
             c.fpath: CompiledFile(c.fpath,
                                   tmp_path / 'proj/build_output/_prebuild/' / c.fpath.name)
         }
-
-        run_mp_results = [
-            (
-                CompiledFile(tmp_path / 'proj/build_output/b.f90',
-                             output_fpath=tmp_path / 'proj/build_output/_prebuild/b.123.o')
-            )
-        ]
 
         # this gets filled in
         mod_hashes: Dict[str, int] = {}

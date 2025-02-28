@@ -52,7 +52,7 @@ def test_run(fake_process: FakeProcess, monkeypatch) -> None:
         {None: {'foo.o', 'bar.o'}}
 
     with warns(UserWarning, match="_metric_send_conn not set, "
-                                    "cannot send metrics"):
+                                  "cannot send metrics"):
         link_shared_object(config, "/tmp/lib_my.so",
                            flags=['-fooflag', '-barflag'])
     assert call_list(fake_process) == [

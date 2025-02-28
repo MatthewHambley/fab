@@ -8,9 +8,9 @@ Tests 'ar' archiver tool.
 """
 from pathlib import Path
 
-from pytest_subprocess.fake_process import FakeProcess, ProcessRecorder
+from pytest_subprocess.fake_process import FakeProcess
 
-from tests.conftest import ExtendedRecorder, arg_list, call_list
+from tests.conftest import ExtendedRecorder, call_list
 
 from fab.tools import Category, Ar
 
@@ -43,9 +43,9 @@ def test_check_unavailable(fake_process: FakeProcess) -> None:
     """
     Tests availability failure.
     """
-    recorder = fake_process.register(['ar', '--version'],
-                                     returncode=1,
-                                     stderr="Something went wrong.")
+    fake_process.register(['ar', '--version'],
+                          returncode=1,
+                          stderr="Something went wrong.")
     ar = Ar()
     assert not ar.check_available()
     assert call_list(fake_process) == [["ar", "--version"]]
