@@ -64,6 +64,7 @@ class Compiler(CompilerSuiteTool):
         self._compile_flag = compile_flag if compile_flag else "-c"
         self._output_flag = output_flag if output_flag else "-o"
         self._openmp_flag = openmp_flag if openmp_flag else ""
+        self.add_flags(os.getenv("FFLAGS", "").split())
         self._version_regex = version_regex
 
     @property
@@ -166,7 +167,7 @@ class Compiler(CompilerSuiteTool):
 
         # Run the compiler to get the version and parse the output
         # The implementations depend on vendor
-        output = self.run_version_command(self.availability_option)
+        output = self.run_version_command()
 
         # Multiline is required in case that the version number is the end
         # of the string, otherwise the $ would not match the end of line
@@ -195,8 +196,7 @@ class Compiler(CompilerSuiteTool):
         return version
 
     def run_version_command(
-            self, version_command: Union[str, List[str]] = '--version'
-    ) -> str:
+            self, version_command: Optional[str] = '--version') -> str:
         '''
         Run the compiler's command to get its version.
 
@@ -251,15 +251,12 @@ class CCompiler(Compiler):
                  mpi: bool = False,
                  compile_flag: Optional[str] = None,
                  output_flag: Optional[str] = None,
-                 openmp_flag: Optional[str] = None,
-                 availability_argument: Optional[str] = None):
+                 openmp_flag: Optional[str] = None):
         super().__init__(name, exec_name, suite,
                          category=Category.C_COMPILER, mpi=mpi,
                          compile_flag=compile_flag, output_flag=output_flag,
                          openmp_flag=openmp_flag,
-                         availability_option=availability_argument,
                          version_regex=version_regex)
-        self.add_flags(os.getenv("CFLAGS", "").split())
 
 
 # ============================================================================
@@ -294,16 +291,13 @@ class FortranCompiler(Compiler):
                  openmp_flag: Optional[str] = None,
                  module_folder_flag: Optional[str] = None,
                  syntax_only_flag: Optional[str] = None,
-                 availability_argument: Optional[str] = None
                  ):
 
         super().__init__(name=name, exec_name=exec_name, suite=suite,
                          category=Category.FORTRAN_COMPILER,
                          mpi=mpi, compile_flag=compile_flag,
                          output_flag=output_flag, openmp_flag=openmp_flag,
-                         availability_option=availability_argument,
                          version_regex=version_regex)
-        self.add_flags(os.getenv("FFLAGS", "").split())
         self._module_folder_flag = (module_folder_flag if module_folder_flag
                                     else "")
         self._syntax_only_flag = syntax_only_flag
@@ -413,8 +407,7 @@ class Icc(CCompiler):
     def __init__(self, name: str = "icc", exec_name: str = "icc"):
         super().__init__(name, exec_name, suite="intel-classic",
                          openmp_flag="-qopenmp",
-                         availability_argument='-V',
-                         version_regex=r"icc \(ICC\) (\d[\d\.]+\d)")
+                         version_regex=r"icc \(ICC\) (\d[\d\.]+\d) ")
 
 
 # ============================================================================
@@ -431,8 +424,7 @@ class Ifort(FortranCompiler):
                          module_folder_flag="-module",
                          openmp_flag="-qopenmp",
                          syntax_only_flag="-syntax-only",
-                         availability_argument='-V',
-                         version_regex=r"ifort \(IFORT\) (\d[\d\.]+\d)\s+")
+                         version_regex=r"ifort \(IFORT\) (\d[\d\.]+\d) ")
 
 
 # ============================================================================
@@ -482,24 +474,7 @@ class Nvc(CCompiler):
     def __init__(self, name: str = "nvc", exec_name: str = "nvc"):
         super().__init__(name, exec_name, suite="nvidia",
                          openmp_flag="-mp",
-                         availability_argument='-V',
-                         version_regex=r"nvc (\d[\d\.-]+\d)")
-
-    def run_version_command(
-            self, version_command: Union[str, List[str]] = '-V') -> str:
-        '''Run the compiler's command to get its version. This implementation
-        runs the function in the base class, and changes any '-' into a
-        '.' to support nvidia version numbers which have dashes, e.g. 23.5-0.
-
-        :param version_command: The compiler argument used to get version info.
-
-        :returns: The output from the version command, with any '-' replaced
-            with '.'
-        '''
-        version_string = super().run_version_command(
-            version_command=version_command
-        )
-        return version_string.replace("-", ".")
+                         version_regex=r"nvc (\d[\d\.]+\d)")
 
 
 # ============================================================================
@@ -517,24 +492,7 @@ class Nvfortran(FortranCompiler):
                          module_folder_flag="-module",
                          openmp_flag="-mp",
                          syntax_only_flag="-Msyntax-only",
-                         availability_argument='-V',
-                         version_regex=r"nvfortran (\d[\d\.-]+\d)")
-
-    def run_version_command(
-            self, version_command: Union[str, List[str]] = '-V') -> str:
-        '''Run the compiler's command to get its version. This implementation
-        runs the function in the base class, and changes any '-' into a
-        '.' to support nvidia version numbers which have dashes, e.g. 23.5-0.
-
-        :param version_command: The compiler argument used to get version info.
-
-        :returns: The output from the version command, with any '-' replaced
-            with '.'
-        '''
-        version_string = super().run_version_command(
-            version_command=version_command
-        )
-        return version_string.replace("-", ".")
+                         version_regex=r"nvfortran (\d[\d\.]+\d)")
 
 
 # ============================================================================
@@ -559,8 +517,7 @@ class Craycc(CCompiler):
     def __init__(self, name: str = "craycc-cc", exec_name: str = "cc"):
         super().__init__(name, exec_name, suite="cray", mpi=True,
                          openmp_flag="-homp",
-                         availability_argument='-V',
-                         version_regex=r"Cray [Cc][^\d]* (\d[\d\.]+\d)  ")
+                         version_regex=r"Cray [Cc][^\d]* (\d[\d\.]+\d)")
 
 
 # ============================================================================
@@ -578,6 +535,5 @@ class Crayftn(FortranCompiler):
                          module_folder_flag="-J",
                          openmp_flag="-homp",
                          syntax_only_flag="-syntax-only",
-                         availability_argument='-V',
                          version_regex=(r"Cray Fortran : Version "
                                         r"(\d[\d\.]+\d)  "))

@@ -3,18 +3,16 @@
 #  For further details please refer to the file COPYRIGHT
 #  which you should have received as part of this distribution
 # ##############################################################################
-"""
-Tests linking step.
-"""
+
+'''
+Tests linking an executable.
+'''
+
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
-from pytest import warns
-from pytest_subprocess.fake_process import FakeProcess
-
-from tests.conftest import call_list
-
-from fab.artefacts import ArtefactSet
-from fab.build_config import BuildConfig
+from fab.artefacts import ArtefactSet, ArtefactStore
 from fab.steps.link import link_exe
 from fab.tools.compiler import FortranCompiler
 from fab.tools.linker import Linker
