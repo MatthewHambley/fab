@@ -37,21 +37,21 @@ jobs:
 
       - name: Type check with mypy
         run: |
-          pip install -e .[checks]
+          pip install -e .[dev]
           pip install pytest
           python -m mypy source tests
 
       - name: Code style check with flake8
         run: |
-          pip install -e .[checks]
+          pip install -e .[dev]
           flake8 . --count --show-source --statistics
 
       - name: Unit tests with Pytest
         run: |
-          pip install .[tests]
+          pip install .[dev]
           python -m pytest --cov=fab tests/unit_tests
 
       - name: System tests with Pytest
         run: |
-          pip install .[tests]
+          pip install .[dev]
           python -m pytest --cov=fab tests/system_tests
