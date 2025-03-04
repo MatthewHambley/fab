@@ -22,7 +22,7 @@ classifiers = [
 c-language = ['libclang']
 plots = ['matplotlib']
 tests = [
-    'pytest',
+    'pytest >= 8.3.0',
     'pytest-cov',
     'pytest-mock',
     'pytest-subprocess>=1.5.3',

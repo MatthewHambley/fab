@@ -192,7 +192,7 @@ def content(stub_tool_box):
 
 class TestProcessFile:
     def test_without_prebuild(self, content,
-                              fs, fake_process: FakeProcess) -> None:
+                              fake_process: FakeProcess, fs) -> None:
         """
         Tests compile when prebuids are not present.
         """
