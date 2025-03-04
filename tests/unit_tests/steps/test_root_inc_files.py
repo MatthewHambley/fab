@@ -43,7 +43,7 @@ class TestRootIncFiles:
 
     def test_skip_output_folder(self, stub_tool_box: ToolBox, fs) -> None:
         """
-        Tests files not copied to output directory.
+        Tests files already in output directory not copied.
         """
         Path('/foo/source').mkdir(parents=True)
         Path('/foo/source/bar.inc').write_text("An include file.")
@@ -61,6 +61,8 @@ class TestRootIncFiles:
         filetree: List[Path] = []
         for path, _, files in Path('/').walk():
             for file in files:
+                if file == 'tmp':  # Skip temporary directory.
+                    continue
                 filetree.append(path / file)
         assert sorted(filetree) == [Path('/fab/proj/build_output/bar.inc'),
                                     Path('/foo/source/bar.inc')]

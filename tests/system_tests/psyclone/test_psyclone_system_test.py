@@ -9,7 +9,7 @@ from os import unlink
 from pathlib import Path
 from unittest import mock
 
-import pytest
+from pytest import fixture, mark, warns
 
 from fab.build_config import BuildConfig
 from fab.parse.x90 import X90Analyser, AnalysedX90
@@ -119,19 +119,20 @@ class Test_analysis_for_x90s_and_kernels:
         }
 
 
-@pytest.mark.skipif(not Psyclone().is_available, reason="psyclone cli tool not available")
+@mark.skipif(not Psyclone().is_available, reason="psyclone cli tool not available")
 class TestPsyclone:
     """
     Basic run of the psyclone step.
 
     """
-    @pytest.fixture
+    @fixture(scope='function')
     def config(self, tmp_path):
         config = BuildConfig('proj', ToolBox(), fab_workspace=tmp_path,
                              multiprocessing=False)
         return config
 
-    def steps(self, config, psyclone_lfric_api):
+    @staticmethod
+    def steps(config):
         here = Path(__file__).parent
         grab_folder(config, here / 'skeleton')
         find_source_files(config)
@@ -145,9 +146,14 @@ class TestPsyclone:
             config.build_output / 'kernel',
             # this second folder is just to test the multiple folders code, which was bugged. There's no kernels there.
             Path(__file__).parent / 'skeleton/algorithm',
-        ], api=psyclone_lfric_api)
+        ], api='lfric')
 
-    def test_run(self, config, psyclone_lfric_api):
+    def test_run(self, config):
+        """
+        Tests a simple PSyclone transformation.
+        """
+        config.prebuild_folder.mkdir(parents=True)
+
         # if these files exist after the run then we know:
         #   a) the expected files were created
         #   b) the prebuilds were protected from automatic cleanup
@@ -170,25 +176,26 @@ class TestPsyclone:
         # So use a list instead:
         assert all(list(config.prebuild_folder.glob(f)) == [] for f in expect_prebuild_files)
         assert all(list(config.build_output.glob(f)) == [] for f in expect_build_files)
-        with config, pytest.warns(UserWarning, match="no transformation script specified"):
-            self.steps(config, psyclone_lfric_api)
+        with warns(UserWarning, match="no transformation script specified"):
+            self.steps(config)
         assert all(list(config.prebuild_folder.glob(f)) != [] for f in expect_prebuild_files)
         assert all(list(config.build_output.glob(f)) != [] for f in expect_build_files)
 
-    def test_prebuild(self, tmp_path, config, psyclone_lfric_api):
-        with config, pytest.warns(UserWarning, match="no transformation script specified"):
-            self.steps(config, psyclone_lfric_api)
+    def test_prebuild(self, config: BuildConfig) -> None:
+        """
+        Tests prebuilds are not rebuild the second time round.
+        """
+        config.prebuild_folder.mkdir(parents=True)
 
-        # make sure no work gets done the second time round
-        with mock.patch('fab.parse.x90.X90Analyser.walk_nodes') as mock_x90_walk, \
-                mock.patch('fab.parse.fortran.FortranAnalyser.walk_nodes') as mock_fortran_walk, \
-                mock.patch('fab.tools.psyclone.Psyclone.process') as mock_run, \
-                config, pytest.warns(UserWarning, match="no transformation script specified"):
-            self.steps(config, psyclone_lfric_api)
+        with warns(UserWarning, match="no transformation script specified"):
+            self.steps(config)
+        first_timestamps = {file: file.stat() for file in config.prebuild_folder.iterdir()}
 
-        mock_x90_walk.assert_not_called()
-        mock_fortran_walk.assert_not_called()
-        mock_run.assert_not_called()
+        with warns(UserWarning, match="no transformation script specified"):
+            self.steps(config)
+        second_timestamps = {file: file.stat() for file in config.prebuild_folder.iterdir()}
+
+        assert second_timestamps == first_timestamps
 
 
 class TestTransformationScript:

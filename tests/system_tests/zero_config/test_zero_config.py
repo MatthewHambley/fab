@@ -1,6 +1,7 @@
 from pathlib import Path
 from shutil import copytree
 
+import pytest
 from pytest import warns
 
 from fab.cli import cli_fab
@@ -40,6 +41,7 @@ class TestZeroConfig:
 
         ToDo: Fragility due to assumption of source donor.
         """
+        pytest.importorskip('clang', reason="Missing libclang bindings.")
         copytree(
             Path(__file__).parent.parent / 'CUserHeader' / 'project-source',
             tmp_path / 'source'
@@ -51,7 +53,6 @@ class TestZeroConfig:
         with warns(DeprecationWarning,
                    match="RootIncFiles is deprecated as .inc files are due to be removed."):
             config = cli_fab(folder=tmp_path / 'source', kwargs=kwargs)
-        print([fobject for fobject in config.project_workspace.iterdir()])
         assert (config.project_workspace / 'main').exists()
 
     def test_c_fortran(self, tmp_path: Path) -> None:
@@ -60,16 +61,16 @@ class TestZeroConfig:
 
         ToDo: Fragility due to assumption of source donor.
         """
+        pytest.importorskip('clang', reason="Missing libclang bindings.")
         copytree(
             Path(__file__).parent.parent / 'CFortranInterop' / 'project-source',
             tmp_path / 'source'
         )
 
-        kwargs = {'project_label': 'c fortran test',
-                  'fab_workspace': tmp_path,
+        kwargs = {'project_label': 'C test',
+                  'fab_workspace': tmp_path / 'fab',
                   'multiprocessing': False}
         with warns(DeprecationWarning,
                    match="RootIncFiles is deprecated as .inc files are due to be removed."):
             config = cli_fab(folder=tmp_path / 'source', kwargs=kwargs)
-        print([fobject for fobject in config.project_workspace.iterdir()])
         assert (config.project_workspace / 'main').exists()
