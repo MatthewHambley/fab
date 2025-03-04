@@ -5,6 +5,7 @@ from warnings import catch_warnings
 
 from pytest import fixture, mark, raises
 from pytest_subprocess.fake_process import FakeProcess
+from pyfakefs.fake_filesystem import FakeFilesystem
 
 from fab.artefacts import ArtefactSet, ArtefactStore
 from fab.build_config import BuildConfig, FlagsConfig
@@ -169,7 +170,7 @@ class TestStoreArtefacts:
 
 # This avoids pylint warnings about Redefining names from outer scope
 @fixture(scope='function')
-def content(stub_tool_box):
+def content(stub_tool_box, fs: FakeFilesystem):
     flags = ['flag1', 'flag2']
     flags_config = Mock()
     flags_config.flags_for_path.return_value = flags
@@ -192,7 +193,8 @@ def content(stub_tool_box):
 
 class TestProcessFile:
     def test_without_prebuild(self, content,
-                              fake_process: FakeProcess, fs) -> None:
+                              fake_process: FakeProcess,
+                              fs: FakeFilesystem) -> None:
         """
         Tests compile when prebuids are not present.
         """
@@ -235,7 +237,8 @@ class TestProcessFile:
         }
 
     def test_with_prebuild(self, content,
-                           fs, fake_process: FakeProcess) -> None:
+                           fs: FakeFilesystem,
+                           fake_process: FakeProcess) -> None:
         """
         Tests compilation only if prebuidlds are not present.
         """
