@@ -6,6 +6,7 @@
 """
 Exercises
 """
+from os import walk as os_walk
 from pathlib import Path
 from typing import List
 
@@ -58,12 +59,18 @@ class TestRootIncFiles:
              warns(DeprecationWarning,
                    match="RootIncFiles is deprecated as .inc files are due to be removed."):
             root_inc_files(config)
+        #
+        # It's not clear why there is an unexepcted temporary directory which
+        # needs to be ignored.
+        #
+        # ToDo: Find out where /tmp is coming from and stop it.
+        #
         filetree: List[Path] = []
-        for path, _, files in Path('/').walk():
+        for path, _, files in os_walk('/'):
             for file in files:
-                if file == 'tmp':  # Skip temporary directory.
+                if file == 'tmp':
                     continue
-                filetree.append(path / file)
+                filetree.append(Path(path) / file)
         assert sorted(filetree) == [Path('/fab/proj/build_output/bar.inc'),
                                     Path('/foo/source/bar.inc')]
 
