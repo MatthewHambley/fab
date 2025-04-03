@@ -37,7 +37,7 @@ def test_psyclone_constructor():
     assert psyclone.name == "psyclone"
     assert psyclone.exec_name == "psyclone"
     # pylint: disable=use-implicit-booleaness-not-comparison
-    assert psyclone.flags == []
+    assert psyclone.get_flags() == []
 
 
 @pytest.mark.parametrize("version", ["2.4.0", "2.5.0", "3.0.0", "3.1.0"])

@@ -27,7 +27,7 @@ class TestGit:
         '''Test the git constructor.'''
         git = Git()
         assert git.category == Category.GIT
-        assert git.flags == []
+        assert git.get_flags() == []
 
     def test_git_check_available(self):
         '''Check if check_available works as expected.
@@ -200,7 +200,7 @@ class TestSubversion:
         """
         svn = Subversion()
         assert svn.category == Category.SUBVERSION
-        assert svn.flags == []
+        assert svn.get_flags() == []
         assert svn.name == "Subversion"
         assert svn.exec_name == "svn"
 
@@ -386,6 +386,6 @@ class TestFcm:
         """
         fcm = Fcm()
         assert fcm.category == Category.FCM
-        assert fcm.flags == []
+        assert fcm.get_flags() == []
         assert fcm.name == "FCM"
         assert fcm.exec_name == "fcm"

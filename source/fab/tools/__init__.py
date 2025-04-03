@@ -14,7 +14,7 @@ from fab.tools.compiler import (CCompiler, Compiler, Craycc, Crayftn,
                                 Icx, Ifort, Ifx, Nvc, Nvfortran)
 from fab.tools.compiler_wrapper import (CompilerWrapper, CrayCcWrapper,
                                         CrayFtnWrapper, Mpicc, Mpif90)
-from fab.tools.flags import Flags
+from fab.tools.flags import Flags, ProfileFlags
 from fab.tools.linker import Linker
 from fab.tools.psyclone import Psyclone
 from fab.tools.rsync import Rsync
@@ -55,6 +55,7 @@ __all__ = ["Ar",
            "Nvc",
            "Nvfortran",
            "Preprocessor",
+           "ProfileFlags",
            "Psyclone",
            "Rsync",
            "Shell",

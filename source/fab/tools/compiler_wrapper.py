@@ -9,11 +9,12 @@ the derived classes for mpif90, mpicc, and CrayFtnWrapper and CrayCcWrapper.
 """
 
 from pathlib import Path
-from typing import cast, List, Optional, Tuple, Union
+from typing import cast, List, Optional, Tuple, TYPE_CHECKING, Union
 
 from fab.tools.category import Category
 from fab.tools.compiler import Compiler, FortranCompiler
-from fab.tools.flags import Flags
+if TYPE_CHECKING:
+    from fab.build_config import BuildConfig
 
 
 class CompilerWrapper(Compiler):
@@ -57,6 +58,7 @@ class CompilerWrapper(Compiler):
             have different version numbers.
         """
 
+        self._version: Optional[Tuple[int, ...]]
         if self._version is not None:
             return self._version
 
@@ -85,11 +87,6 @@ class CompilerWrapper(Compiler):
         return self._compiler
 
     @property
-    def flags(self) -> Flags:
-        ''':returns: the flags to be used with this tool.'''
-        return Flags(self._compiler.flags + self._flags)
-
-    @property
     def suite(self) -> str:
         ''':returns: the compiler suite of this tool.'''
         return self._compiler.suite
@@ -113,6 +110,13 @@ class CompilerWrapper(Compiler):
         raise RuntimeError(f"Compiler '{self._compiler.name}' has "
                            f"no has_syntax_only.")
 
+    def get_flags(self, profile: Optional[str] = None) -> List[str]:
+        ''':returns; the ProfileFlags for the given profile, combined
+        from the wrapped compiler and this wrapper.
+        :param profile: the profile to use.'''
+        return (self._compiler.get_flags(profile) +
+                super().get_flags(profile))
+
     def set_module_output_path(self, path: Path):
         '''Sets the output path for modules.
 
@@ -129,7 +133,7 @@ class CompilerWrapper(Compiler):
 
     def compile_file(self, input_file: Path,
                      output_file: Path,
-                     openmp: bool,
+                     config: "BuildConfig",
                      add_flags: Union[None, List[str]] = None,
                      syntax_only: Optional[bool] = None):
         # pylint: disable=too-many-arguments
@@ -139,7 +143,8 @@ class CompilerWrapper(Compiler):
 
         :param input_file: the name of the input file.
         :param output_file: the name of the output file.
-        :param openmp: if compilation should be done with OpenMP.
+        :param config: The BuildConfig, from which compiler profile and OpenMP
+            status are taken.
         :param add_flags: additional flags for the compiler.
         :param syntax_only: if set, the compiler will only do
             a syntax check
@@ -159,16 +164,16 @@ class CompilerWrapper(Compiler):
             # (or a CompilerWrapper in case of nested CompilerWrappers,
             # which also supports the syntax_only flag anyway)
             self._compiler = cast(FortranCompiler, self._compiler)
-            self._compiler.compile_file(input_file, output_file, openmp=openmp,
-                                        add_flags=self.flags + add_flags,
+            self._compiler.compile_file(input_file, output_file, config=config,
+                                        add_flags=self.get_flags() + add_flags,
                                         syntax_only=syntax_only,
                                         )
         else:
             if syntax_only is not None:
                 raise RuntimeError(f"Syntax-only cannot be used with compiler "
                                    f"'{self.name}'.")
-            self._compiler.compile_file(input_file, output_file, openmp=openmp,
-                                        add_flags=self.flags+add_flags
+            self._compiler.compile_file(input_file, output_file, config=config,
+                                        add_flags=self.get_flags()+add_flags
                                         )
         self._compiler.change_exec_name(orig_compiler_name)
 

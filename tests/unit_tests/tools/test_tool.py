@@ -14,7 +14,7 @@ from unittest import mock
 
 import pytest
 
-from fab.tools import Category, CompilerSuiteTool, Tool
+from fab.tools import Category, CompilerSuiteTool, ProfileFlags, Tool
 
 
 def test_tool_constructor():
@@ -77,16 +77,52 @@ def test_tool_is_available():
                 availability_option="am_i_here")
     assert tool.availability_option == "am_i_here"
 
+    # Test that the actual check_available function works. Return 0 to
+    # indicate no error when running the tool:
+    mock_result = mock.Mock(returncode=0)
+    with mock.patch('fab.tools.tool.subprocess.run',
+                    return_value=mock_result) as tool_run:
+        assert tool.check_available()
+    tool_run.assert_called_once_with(['gfortran', 'am_i_here'],
+                                     capture_output=True, env=None,
+                                     cwd=None, check=False)
+    with mock.patch.object(tool, "run", side_effect=RuntimeError("")):
+        assert not tool.check_available()
 
-def test_tool_flags():
-    '''Test that flags work as expected'''
+
+def test_tool_flags_no_profile():
+    '''Test that flags without using a profile work as expected.'''
     tool = Tool("gfortran", "gfortran", Category.FORTRAN_COMPILER)
     # pylint: disable-next=use-implicit-booleaness-not-comparison
-    assert tool.flags == []
+    assert tool.get_flags() == []
     tool.add_flags("-a")
-    assert tool.flags == ["-a"]
+    assert tool.get_flags() == ["-a"]
     tool.add_flags(["-b", "-c"])
-    assert tool.flags == ["-a", "-b", "-c"]
+    assert tool.get_flags() == ["-a", "-b", "-c"]
+
+
+def test_tool_profiles():
+    '''Test that profiles work as expected. These tests use internal
+    implementation details of ProfileFlags, but we need to test that the
+    exposed flag-related API works as expected
+
+    '''
+    tool = Tool("gfortran", "gfortran", Category.FORTRAN_COMPILER)
+    # Make sure by default we get ProfileFlags
+    assert isinstance(tool._flags, ProfileFlags)
+    assert tool.get_flags() == []
+
+    # Define a profile with no inheritance
+    tool.define_profile("mode1")
+    assert tool.get_flags("mode1") == []
+    tool.add_flags("-flag1", "mode1")
+    assert tool.get_flags("mode1") == ["-flag1"]
+
+    # Define a profile with inheritance
+    tool.define_profile("mode2", "mode1")
+    assert tool.get_flags("mode2") == ["-flag1"]
+    tool.add_flags("-flag2", "mode2")
+    assert tool.get_flags("mode2") == ["-flag1", "-flag2"]
 
 
 class TestToolRun:

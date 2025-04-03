@@ -13,7 +13,7 @@ import warnings
 
 import pytest
 
-from fab.tools import (Category, Linker, ToolRepository)
+from fab.tools import Category, CompilerWrapper, Linker, ToolRepository
 
 
 def test_linker(mock_c_compiler, mock_fortran_compiler):
@@ -27,7 +27,7 @@ def test_linker(mock_c_compiler, mock_fortran_compiler):
     assert linker.name == "linker-mock_c_compiler"
     assert linker.exec_name == "mock_c_compiler.exe"
     assert linker.suite == "suite"
-    assert linker.flags == []
+    assert linker.get_flags() == []
     assert linker.output_flag == "-o"
 
     assert mock_fortran_compiler.category == Category.FORTRAN_COMPILER
@@ -38,7 +38,7 @@ def test_linker(mock_c_compiler, mock_fortran_compiler):
     assert linker.name == "linker-mock_fortran_compiler"
     assert linker.exec_name == "mock_fortran_compiler.exe"
     assert linker.suite == "suite"
-    assert linker.flags == []
+    assert linker.get_flags() == []
 
 
 @pytest.mark.parametrize("mpi", [True, False])
@@ -75,7 +75,7 @@ def test_linker_gets_ldflags(mock_c_compiler):
     """Tests that the linker retrieves env.LDFLAGS"""
     with mock.patch.dict("os.environ", {"LDFLAGS": "-lm"}):
         linker = Linker(compiler=mock_c_compiler)
-    assert "-lm" in linker.flags
+    assert "-lm" in linker.get_flags()
 
 
 def test_linker_check_available(mock_c_compiler):
@@ -180,99 +180,116 @@ def test_linker_add_lib_flags_overwrite_silent(mock_linker):
 # ====================
 # Linking:
 # ====================
-def test_linker_c(mock_c_compiler):
+def test_linker_c(mock_config):
     '''Test the link command line when no additional libraries are
     specified.'''
 
+    mock_c_compiler = mock_config.tool_box[Category.C_COMPILER]
     linker = Linker(compiler=mock_c_compiler)
     # Add a library to the linker, but don't use it in the link step
     linker.add_lib_flags("customlib", ["-lcustom", "-jcustom"])
 
     mock_result = mock.Mock(returncode=0)
+    mock_config._openmp = False
     with mock.patch('fab.tools.tool.subprocess.run',
                     return_value=mock_result) as tool_run:
-        linker.link([Path("a.o")], Path("a.out"), openmp=False)
+        linker.link([Path("a.o")], Path("a.out"), config=mock_config)
     tool_run.assert_called_with(
         ["mock_c_compiler.exe", "a.o", "-o", "a.out"],
         capture_output=True, env=None, cwd=None, check=False)
 
 
-def test_linker_c_with_libraries(mock_c_compiler):
+def test_linker_c_with_libraries(mock_config):
     """Test the link command line when additional libraries are specified."""
+    mock_c_compiler = mock_config.tool_box[Category.C_COMPILER]
     linker = Linker(compiler=mock_c_compiler)
     linker.add_lib_flags("customlib", ["-lcustom", "-jcustom"])
 
+    mock_config._openmp = True
     with mock.patch.object(linker, "run") as link_run:
         linker.link(
-            [Path("a.o")], Path("a.out"), libs=["customlib"], openmp=True)
+            [Path("a.o")], Path("a.out"), libs=["customlib"],
+            config=mock_config)
     # The order of the 'libs' list should be maintained
     link_run.assert_called_with(
         ["-fopenmp", "a.o", "-lcustom", "-jcustom", "-o", "a.out"])
 
 
-def test_linker_c_with_libraries_and_post_flags(mock_c_compiler):
+def test_linker_c_with_libraries_and_post_flags(mock_config):
     """Test the link command line when a library and additional flags are
     specified."""
+    mock_c_compiler = mock_config.tool_box[Category.C_COMPILER]
     linker = Linker(compiler=mock_c_compiler)
     linker.add_lib_flags("customlib", ["-lcustom", "-jcustom"])
     linker.add_post_lib_flags(["-extra-flag"])
 
+    mock_config._openmp = False
     with mock.patch.object(linker, "run") as link_run:
         linker.link(
-            [Path("a.o")], Path("a.out"), libs=["customlib"], openmp=False)
+            [Path("a.o")], Path("a.out"), libs=["customlib"],
+            config=mock_config)
     link_run.assert_called_with(
         ["a.o", "-lcustom", "-jcustom", "-extra-flag", "-o", "a.out"])
 
 
-def test_linker_c_with_libraries_and_pre_flags(mock_c_compiler):
+def test_linker_c_with_libraries_and_pre_flags(mock_config):
     """Test the link command line when a library and additional flags are
     specified."""
+    mock_c_compiler = mock_config.tool_box[Category.C_COMPILER]
     linker = Linker(compiler=mock_c_compiler)
     linker.add_lib_flags("customlib", ["-lcustom", "-jcustom"])
     linker.add_pre_lib_flags(["-L", "/common/path/"])
 
+    mock_config._openmp = False
     with mock.patch.object(linker, "run") as link_run:
         linker.link(
-            [Path("a.o")], Path("a.out"), libs=["customlib"], openmp=False)
+            [Path("a.o")], Path("a.out"), libs=["customlib"],
+            config=mock_config)
     link_run.assert_called_with(
         ["a.o", "-L", "/common/path/", "-lcustom", "-jcustom", "-o", "a.out"])
 
 
-def test_linker_c_with_unknown_library(mock_c_compiler):
+def test_linker_c_with_unknown_library(mock_config):
     """Test the link command raises an error when unknow libraries are
     specified.
     """
+    mock_c_compiler = mock_config.tool_box[Category.C_COMPILER]
     linker = Linker(compiler=mock_c_compiler)\
 
+    mock_config._openmp = True
     with pytest.raises(RuntimeError) as err:
         # Try to use "customlib" when we haven't added it to the linker
         linker.link(
-            [Path("a.o")], Path("a.out"), libs=["customlib"], openmp=True)
+            [Path("a.o")], Path("a.out"), libs=["customlib"],
+            config=mock_config)
 
     assert "Unknown library name: 'customlib'" in str(err.value)
 
 
-def test_compiler_linker_add_compiler_flag(mock_c_compiler):
+def test_compiler_linker_add_compiler_flag(mock_c_compiler, mock_config):
     '''Test that a flag added to the compiler will be automatically
     added to the link line (even if the flags are modified after creating the
     linker ... in case that the user specifies additional flags after creating
     the linker).'''
 
+    mock_c_compiler = mock_config.tool_box[Category.C_COMPILER]
     linker = Linker(compiler=mock_c_compiler)
-    mock_c_compiler.flags.append("-my-flag")
+    mock_c_compiler.add_flags("-my-flag")
     mock_result = mock.Mock(returncode=0)
+    mock_config._openmp = False
     with mock.patch('fab.tools.tool.subprocess.run',
                     return_value=mock_result) as tool_run:
-        linker.link([Path("a.o")], Path("a.out"), openmp=False)
+        linker.link([Path("a.o")], Path("a.out"), config=mock_config)
     tool_run.assert_called_with(
         ['mock_c_compiler.exe', '-my-flag', 'a.o', '-o', 'a.out'],
         capture_output=True, env=None, cwd=None, check=False)
 
 
-def test_linker_all_flag_types(mock_c_compiler):
+def test_linker_all_flag_types(mock_config):
     """Make sure all possible sources of linker flags are used in the right
     order"""
 
+    mock_c_compiler = mock_config.tool_box[Category.C_COMPILER]
     # Environment variables for both the linker
     with mock.patch.dict("os.environ", {"LDFLAGS": "-ldflag"}):
         linker = Linker(compiler=mock_c_compiler)
@@ -285,12 +302,13 @@ def test_linker_all_flag_types(mock_c_compiler):
     linker.add_post_lib_flags(["-postlibflag1", "-postlibflag2"])
 
     mock_result = mock.Mock(returncode=0)
+    mock_config._openmp = True
     with mock.patch("fab.tools.tool.subprocess.run",
                     return_value=mock_result) as tool_run:
         linker.link([
             Path("a.o")], Path("a.out"),
             libs=["customlib2", "customlib1"],
-            openmp=True)
+            config=mock_config)
 
     tool_run.assert_called_with([
         "mock_c_compiler.exe",
@@ -306,10 +324,11 @@ def test_linker_all_flag_types(mock_c_compiler):
         capture_output=True, env=None, cwd=None, check=False)
 
 
-def test_linker_nesting(mock_c_compiler):
+def test_linker_nesting(mock_config):
     """Make sure all possible sources of linker flags are used in the right
     order"""
 
+    mock_c_compiler = mock_config.tool_box[Category.C_COMPILER]
     linker1 = Linker(compiler=mock_c_compiler)
     linker1.add_pre_lib_flags(["pre_lib1"])
     linker1.add_lib_flags("lib_a", ["a_from_1"])
@@ -320,14 +339,14 @@ def test_linker_nesting(mock_c_compiler):
     linker2.add_lib_flags("lib_b", ["b_from_2"])
     linker2.add_lib_flags("lib_c", ["c_from_2"])
     linker1.add_post_lib_flags(["post_lib2"])
-
+    mock_config._openmp = True
     mock_result = mock.Mock(returncode=0)
     with mock.patch("fab.tools.tool.subprocess.run",
                     return_value=mock_result) as tool_run:
         linker2.link(
             [Path("a.o")], Path("a.out"),
             libs=["lib_a", "lib_b", "lib_c"],
-            openmp=True)
+            config=mock_config)
     tool_run.assert_called_with(["mock_c_compiler.exe", "-fopenmp",
                                  "a.o", "pre_lib2", "pre_lib1", "a_from_1",
                                  "b_from_2", "c_from_2",
@@ -350,3 +369,51 @@ def test_linker_inheriting():
     with pytest.raises(RuntimeError) as err:
         linker_mpif90.get_lib_flags("does_not_exist")
     assert "Unknown library name: 'does_not_exist'" in str(err.value)
+
+
+def test_linker_profile_flags_inheriting(mock_c_compiler):
+    '''Test nested compiler and nested linker with inherited profiling flags.
+
+    '''
+    mock_c_compiler_wrapper = CompilerWrapper(name="mock_c_compiler_wrapper",
+                                              compiler=mock_c_compiler,
+                                              exec_name="exec_name")
+    linker = Linker(mock_c_compiler_wrapper)
+    linker_wrapper = Linker(mock_c_compiler_wrapper, linker=linker)
+    count = 0
+    for compiler in [mock_c_compiler, mock_c_compiler_wrapper]:
+        compiler.define_profile("base")
+        compiler.define_profile("derived", "base")
+        compiler.add_flags(f"-f{count}", "base")
+        compiler.add_flags(f"-f{count+1}", "derived")
+        count += 2
+
+    # One set f1-f4 from the compiler wrapper, one from the wrapped linker
+    assert (linker_wrapper.get_profile_flags("derived") ==
+            ["-f0", "-f1", "-f2", "-f3", "-f0", "-f1", "-f2", "-f3"])
+
+
+def test_linker_profile_modes(mock_linker):
+    '''Test that defining a profile mode in a linker will also define
+    the same modes in post- and pre-flags
+    '''
+
+    # Make sure that we get the expected errors at the start:
+    with pytest.raises(KeyError) as err:
+        mock_linker._pre_lib_flags["base"]
+    assert "Profile 'base' is not defined" in str(err.value)
+    with pytest.raises(KeyError) as err:
+        mock_linker._post_lib_flags["base"]
+    assert "Profile 'base' is not defined" in str(err.value)
+
+    mock_linker.define_profile("base")
+    assert mock_linker._pre_lib_flags["base"] == []
+    assert "base" not in mock_linker._pre_lib_flags._inherit_from
+    assert mock_linker._post_lib_flags["base"] == []
+    assert "base" not in mock_linker._post_lib_flags._inherit_from
+
+    mock_linker.define_profile("full-debug", "base")
+    assert mock_linker._pre_lib_flags["full-debug"] == []
+    assert mock_linker._pre_lib_flags._inherit_from["full-debug"] == "base"
+    assert mock_linker._post_lib_flags["full-debug"] == []
+    assert mock_linker._post_lib_flags._inherit_from["full-debug"] == "base"

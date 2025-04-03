@@ -27,7 +27,7 @@ def test_compiler():
     assert cc._compile_flag == "-c"
     assert cc.output_flag == "-o"
     # pylint: disable-next=use-implicit-booleaness-not-comparison
-    assert cc.flags == []
+    assert cc.get_flags() == []
     assert cc.suite == "gnu"
     assert not cc.mpi
     assert cc.openmp_flag == "-fopenmp"
@@ -39,7 +39,7 @@ def test_compiler():
     assert fc.category == Category.FORTRAN_COMPILER
     assert fc.suite == "gnu"
     # pylint: disable-next=use-implicit-booleaness-not-comparison
-    assert fc.flags == []
+    assert fc.get_flags() == []
     assert not fc.mpi
     assert fc.openmp_flag == "-fopenmp"
 
@@ -95,7 +95,7 @@ def test_compiler_hash():
     cc = Gcc()
     with mock.patch.object(cc, "_version", (5, 6, 7)):
         hash1 = cc.get_hash()
-        assert hash1 == 2768517656
+        assert hash1 == 2991650113
 
     # A change in the version number must change the hash:
     with mock.patch.object(cc, "_version", (8, 9)):
@@ -136,8 +136,8 @@ def test_compiler_with_env_fflags():
     with mock.patch.dict(os.environ, FFLAGS='--foo --bar'):
         cc = Gcc()
         fc = Gfortran()
-    assert cc.flags == ["--foo", "--bar"]
-    assert fc.flags == ["--foo", "--bar"]
+        assert cc.get_flags() == ["--foo", "--bar"]
+        assert fc.get_flags() == ["--foo", "--bar"]
 
 
 def test_compiler_syntax_only():
@@ -163,7 +163,7 @@ def test_compiler_syntax_only():
     assert fc._syntax_only_flag == "-fsyntax-only"
 
 
-def test_compiler_without_openmp():
+def test_compiler_without_openmp(mock_config):
     '''Tests that the openmp flag is not used when openmp is not enabled. '''
     fc = FortranCompiler("gfortran", "gfortran", "gnu",
                          version_regex="something",
@@ -172,14 +172,16 @@ def test_compiler_without_openmp():
                          syntax_only_flag="-fsyntax-only")
     fc.set_module_output_path("/tmp")
     fc.run = mock.Mock()
-    fc.compile_file(Path("a.f90"), "a.o", openmp=False, syntax_only=True)
+    mock_config._openmp = False
+    fc.compile_file(Path("a.f90"), "a.o", config=mock_config, syntax_only=True)
     fc.run.assert_called_with(cwd=Path('.'),
+                              profile='',
                               additional_parameters=['-c', '-fsyntax-only',
                                                      "-J", '/tmp', 'a.f90',
                                                      '-o', 'a.o', ])
 
 
-def test_compiler_with_openmp():
+def test_compiler_with_openmp(mock_config):
     '''Tests that the openmp flag is used as expected if openmp is enabled.
     '''
     fc = FortranCompiler("gfortran", "gfortran", "gnu",
@@ -189,27 +191,33 @@ def test_compiler_with_openmp():
                          syntax_only_flag="-fsyntax-only")
     fc.set_module_output_path("/tmp")
     fc.run = mock.Mock()
-    fc.compile_file(Path("a.f90"), "a.o", openmp=True, syntax_only=False)
+    mock_config._openmp = True
+    mock_config._profile = "test_profile"
+    fc.compile_file(Path("a.f90"), "a.o", config=mock_config,
+                    syntax_only=False)
     fc.run.assert_called_with(cwd=Path('.'),
+                              profile='test_profile',
                               additional_parameters=['-c', '-fopenmp',
                                                      "-J", '/tmp', 'a.f90',
                                                      '-o', 'a.o', ])
 
 
-def test_compiler_module_output():
+def test_compiler_module_output(mock_config):
     '''Tests handling of module output_flags.'''
     fc = FortranCompiler("gfortran", "gfortran", suite="gnu",
                          version_regex="something", module_folder_flag="-J")
     fc.set_module_output_path("/module_out")
     assert fc._module_output_path == "/module_out"
     fc.run = mock.MagicMock()
-    fc.compile_file(Path("a.f90"), "a.o", openmp=False, syntax_only=True)
+    mock_config._openmp = False
+    fc.compile_file(Path("a.f90"), "a.o", config=mock_config, syntax_only=True)
     fc.run.assert_called_with(cwd=PosixPath('.'),
+                              profile='',
                               additional_parameters=['-c', '-J', '/module_out',
                                                      'a.f90', '-o', 'a.o'])
 
 
-def test_compiler_with_add_args():
+def test_compiler_with_add_args(mock_config):
     '''Tests that additional arguments are handled as expected.'''
     fc = FortranCompiler("gfortran", "gfortran", suite="gnu",
                          version_regex="something",
@@ -218,20 +226,24 @@ def test_compiler_with_add_args():
     fc.set_module_output_path("/module_out")
     assert fc._module_output_path == "/module_out"
     fc.run = mock.MagicMock()
+    mock_config._openmp = False
+    mock_config._profile = "default"
     with pytest.warns(UserWarning, match="Removing managed flag"):
         fc.compile_file(Path("a.f90"), "a.o", add_flags=["-J/b", "-O3"],
-                        openmp=False, syntax_only=True)
+                        config=mock_config, syntax_only=True)
     # Notice that "-J/b" has been removed
     fc.run.assert_called_with(cwd=PosixPath('.'),
-                              additional_parameters=['-c', "-O3",
+                              profile='default',
+                              additional_parameters=['-c', '-O3',
                                                      '-J', '/module_out',
                                                      'a.f90', '-o', 'a.o'])
+    mock_config._openmp = True
     with pytest.warns(UserWarning,
                       match="explicitly provided. OpenMP should be enabled in "
                             "the BuildConfiguration"):
         fc.compile_file(Path("a.f90"), "a.o",
                         add_flags=["-fopenmp", "-O3"],
-                        openmp=True, syntax_only=True)
+                        config=mock_config, syntax_only=True)
 
 
 # ============================================================================

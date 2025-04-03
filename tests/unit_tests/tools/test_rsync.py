@@ -18,7 +18,7 @@ def test_ar_constructor():
     assert rsync.category == Category.RSYNC
     assert rsync.name == "rsync"
     assert rsync.exec_name == "rsync"
-    assert rsync.flags == []
+    assert rsync.get_flags() == []
 
 
 def test_rsync_check_available():

@@ -155,8 +155,8 @@ def fixture_content(tool_box):
     analysed_file.add_module_def('mod_def_1')
     analysed_file.add_module_def('mod_def_2')
 
-    obj_combo_hash = '17ef947fd'
-    mods_combo_hash = '10867b4f3'
+    obj_combo_hash = '18c460326'
+    mods_combo_hash = '115b4701c'
     mp_common_args = MpCommonArgs(
         config=BuildConfig('proj', tool_box, fab_workspace=Path('/fab')),
         flags=flags_config,
@@ -287,7 +287,7 @@ class TestProcessFile:
         mp_common_args, flags, analysed_file, obj_combo_hash, mods_combo_hash = content
         flags = ['flag1', 'flag3']
         mp_common_args.flags.flags_for_path.return_value = flags
-        obj_combo_hash = '17fbbadd2'
+        obj_combo_hash = '18d0868fb'
 
         with mock.patch('pathlib.Path.exists', side_effect=[True, True, False]):  # mod files exist, obj file doesn't
             with mock.patch('fab.steps.compile_fortran.compile_file') as mock_compile_file:
@@ -344,8 +344,8 @@ class TestProcessFile:
         compiler = mp_common_args.config.tool_box[Category.FORTRAN_COMPILER]
         compiler._name += "xx"
 
-        obj_combo_hash = '19dfa6c83'
-        mods_combo_hash = '12768d979'
+        obj_combo_hash = '1ab4727ac'
+        mods_combo_hash = '134b594a2'
         assert obj_combo_hash != orig_obj_hash
         assert mods_combo_hash != orig_mods_hash
 
@@ -375,8 +375,8 @@ class TestProcessFile:
         compiler = mp_common_args.config.tool_box[Category.FORTRAN_COMPILER]
         compiler._version = (9, 8, 7)
 
-        obj_combo_hash = '1a87f4e07'
-        mods_combo_hash = '131edbafd'
+        obj_combo_hash = '1b5cc0930'
+        mods_combo_hash = '13f3a7626'
         assert orig_obj_hash != obj_combo_hash
         assert orig_mods_hash != mods_combo_hash
 

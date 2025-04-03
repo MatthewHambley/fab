@@ -32,7 +32,7 @@ def fixture_content(tmp_path, tool_box):
     analysed_file = AnalysedC(fpath=Path(f'{config.source_root}/foo.c'), file_hash=0)
     config._artefact_store[ArtefactSet.BUILD_TREES] = \
         {None: {analysed_file.fpath: analysed_file}}
-    expect_hash = 7435424994
+    expect_hash = 7658557451
     return config, analysed_file, expect_hash
 
 
@@ -78,6 +78,7 @@ class TestCompileC:
         # ensure it made the correct command-line call from the child process
         compiler.run.assert_called_with(
             cwd=Path(config.source_root),
+            profile="",
             additional_parameters=['-c', '-Denv_flag', '-I', 'foo/include',
                                    '-Dhello', 'foo.c',
                                    '-o', str(config.prebuild_folder /
@@ -119,7 +120,7 @@ class TestGetObjComboHash:
         '''Test that we get the expected hashes in this test setup.'''
         config, analysed_file, expect_hash = content
         compiler = config.tool_box[Category.C_COMPILER]
-        result = _get_obj_combo_hash(compiler, analysed_file, flags)
+        result = _get_obj_combo_hash(config, compiler, analysed_file, flags)
         assert result == expect_hash
 
     def test_change_file(self, content, flags):
@@ -128,7 +129,7 @@ class TestGetObjComboHash:
         config, analysed_file, expect_hash = content
         compiler = config.tool_box[Category.C_COMPILER]
         analysed_file._file_hash += 1
-        result = _get_obj_combo_hash(compiler, analysed_file, flags)
+        result = _get_obj_combo_hash(config, compiler, analysed_file, flags)
         assert result == expect_hash + 1
 
     def test_change_flags(self, content, flags):
@@ -136,7 +137,7 @@ class TestGetObjComboHash:
         config, analysed_file, expect_hash = content
         compiler = config.tool_box[Category.C_COMPILER]
         flags = Flags(['-Dfoo'] + flags)
-        result = _get_obj_combo_hash(compiler, analysed_file, flags)
+        result = _get_obj_combo_hash(config, compiler, analysed_file, flags)
         assert result != expect_hash
 
     def test_change_compiler(self, content, flags):
@@ -146,7 +147,7 @@ class TestGetObjComboHash:
         compiler = config.tool_box[Category.C_COMPILER]
         # Change the name of the compiler
         compiler._name = compiler.name + "XX"
-        result = _get_obj_combo_hash(compiler, analysed_file, flags)
+        result = _get_obj_combo_hash(config, compiler, analysed_file, flags)
         assert result != expect_hash
 
     def test_change_compiler_version(self, content, flags):
@@ -155,5 +156,5 @@ class TestGetObjComboHash:
         config, analysed_file, expect_hash = content
         compiler = config.tool_box[Category.C_COMPILER]
         compiler._version = (9, 8, 7)
-        result = _get_obj_combo_hash(compiler, analysed_file, flags)
+        result = _get_obj_combo_hash(config, compiler, analysed_file, flags)
         assert result != expect_hash

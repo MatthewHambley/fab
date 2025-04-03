@@ -67,13 +67,13 @@ def link_exe(config,
 
     libs = libs or []
     if flags:
-        linker.add_post_lib_flags(flags)
+        linker.add_post_lib_flags(flags, config.profile)
     source_getter = source or DefaultLinkerSource()
 
     target_objects = source_getter(config.artefact_store)
     for root, objects in target_objects.items():
         exe_path = config.project_workspace / f'{root}'
-        linker.link(objects, exe_path, openmp=config.openmp, libs=libs)
+        linker.link(objects, exe_path, config=config, libs=libs)
         config.artefact_store.add(ArtefactSet.EXECUTABLES, exe_path)
 
 
@@ -123,5 +123,5 @@ def link_shared_object(config, output_fpath: str, flags=None,
 
     objects = target_objects[None]
     out_name = Template(output_fpath).substitute(output=config.build_output)
-    linker.add_post_lib_flags(flags)
-    linker.link(objects, out_name, openmp=config.openmp)
+    linker.add_post_lib_flags(flags, config.profile)
+    linker.link(objects, out_name, config=config)

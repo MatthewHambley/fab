@@ -276,8 +276,9 @@ def process_file(arg: Tuple[AnalysedFortran, MpCommonArgs]) \
         flags = Flags(mp_common_args.flags.flags_for_path(
             path=analysed_file.fpath, config=config))
 
-        mod_combo_hash = _get_mod_combo_hash(analysed_file, compiler=compiler)
-        obj_combo_hash = _get_obj_combo_hash(analysed_file,
+        mod_combo_hash = _get_mod_combo_hash(config, analysed_file,
+                                             compiler=compiler)
+        obj_combo_hash = _get_obj_combo_hash(config, analysed_file,
                                              mp_common_args=mp_common_args,
                                              compiler=compiler, flags=flags)
 
@@ -344,7 +345,8 @@ def process_file(arg: Tuple[AnalysedFortran, MpCommonArgs]) \
     return compiled_file, artefacts
 
 
-def _get_obj_combo_hash(analysed_file, mp_common_args: MpCommonArgs,
+def _get_obj_combo_hash(config: BuildConfig,
+                        analysed_file, mp_common_args: MpCommonArgs,
                         compiler: Compiler, flags: Flags):
     # get a combo hash of things which matter to the object file we define
     # todo: don't just silently use 0 for a missing dep hash
@@ -356,7 +358,7 @@ def _get_obj_combo_hash(analysed_file, mp_common_args: MpCommonArgs,
             analysed_file.file_hash,
             flags.checksum(),
             sum(mod_deps_hashes.values()),
-            compiler.get_hash(),
+            compiler.get_hash(config.profile),
         ])
     except TypeError as err:
         raise ValueError("Could not generate combo hash "
@@ -364,12 +366,12 @@ def _get_obj_combo_hash(analysed_file, mp_common_args: MpCommonArgs,
     return obj_combo_hash
 
 
-def _get_mod_combo_hash(analysed_file, compiler: Compiler):
+def _get_mod_combo_hash(config, analysed_file, compiler: Compiler):
     # get a combo hash of things which matter to the mod files we define
     try:
         mod_combo_hash = sum([
             analysed_file.file_hash,
-            compiler.get_hash(),
+            compiler.get_hash(config.profile),
         ])
     except TypeError as err:
         raise ValueError("Could not generate combo "
@@ -394,7 +396,7 @@ def compile_file(analysed_file, flags, output_fpath, mp_common_args):
     compiler = config.tool_box[Category.FORTRAN_COMPILER]
 
     compiler.compile_file(input_file=analysed_file, output_file=output_fpath,
-                          openmp=config.openmp,
+                          config=config,
                           add_flags=flags,
                           syntax_only=mp_common_args.syntax_only)
 

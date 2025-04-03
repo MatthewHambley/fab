@@ -133,7 +133,8 @@ def _compile_file(arg: Tuple[AnalysedC, MpCommonArgs]):
     with Timer() as timer:
         flags = Flags(mp_payload.flags.flags_for_path(path=analysed_file.fpath,
                                                       config=config))
-        obj_combo_hash = _get_obj_combo_hash(compiler, analysed_file, flags)
+        obj_combo_hash = _get_obj_combo_hash(config, compiler,
+                                             analysed_file, flags)
 
         obj_file_prebuild = (config.prebuild_folder /
                              f'{analysed_file.fpath.stem}.'
@@ -148,7 +149,7 @@ def _compile_file(arg: Tuple[AnalysedC, MpCommonArgs]):
             log_or_dot(logger, f'CompileC compiling {analysed_file.fpath}')
             try:
                 compiler.compile_file(analysed_file.fpath, obj_file_prebuild,
-                                      openmp=config.openmp,
+                                      config=config,
                                       add_flags=flags)
             except RuntimeError as err:
                 return FabException(f"error compiling "
@@ -162,13 +163,14 @@ def _compile_file(arg: Tuple[AnalysedC, MpCommonArgs]):
                         output_fpath=obj_file_prebuild)
 
 
-def _get_obj_combo_hash(compiler, analysed_file, flags: Flags):
+def _get_obj_combo_hash(config: BuildConfig,
+                        compiler: Compiler, analysed_file, flags: Flags):
     # get a combo hash of things which matter to the object file we define
     try:
         obj_combo_hash = sum([
             analysed_file.file_hash,
             flags.checksum(),
-            compiler.get_hash(),
+            compiler.get_hash(config.profile),
         ])
     except TypeError as err:
         raise ValueError("could not generate combo hash for "

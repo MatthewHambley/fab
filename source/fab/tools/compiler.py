@@ -12,12 +12,14 @@ import os
 import re
 from pathlib import Path
 import warnings
-from typing import List, Optional, Tuple, Union
+from typing import cast, List, Optional, Tuple, TYPE_CHECKING, Union
 import zlib
 
 from fab.tools.category import Category
 from fab.tools.flags import Flags
 from fab.tools.tool import CompilerSuiteTool
+if TYPE_CHECKING:
+    from fab.build_config import BuildConfig
 
 
 class Compiler(CompilerSuiteTool):
@@ -64,7 +66,6 @@ class Compiler(CompilerSuiteTool):
         self._compile_flag = compile_flag if compile_flag else "-c"
         self._output_flag = output_flag if output_flag else "-o"
         self._openmp_flag = openmp_flag if openmp_flag else ""
-        self.add_flags(os.getenv("FFLAGS", "").split())
         self._version_regex = version_regex
 
     @property
@@ -90,15 +91,24 @@ class Compiler(CompilerSuiteTool):
         '''Returns the flag that specifies the output flag.'''
         return self._output_flag
 
-    def get_hash(self) -> int:
+    def get_hash(self, profile: Optional[str] = None) -> int:
         ''':returns: a hash based on the compiler name and version.
         '''
         return (zlib.crc32(self.name.encode()) +
+                zlib.crc32(str(self.get_flags(profile)).encode()) +
                 zlib.crc32(self.get_version_string().encode()))
+
+    def get_flags(self, profile: Optional[str] = None) -> List[str]:
+        '''Determines the flags to be used. We should always add $FFLAGS,so
+        we always add them in here.
+
+        :returns: the flags to be used with this tool.'''
+        fflags = os.getenv("FFLAGS", "").split()
+        return self._flags[profile] + fflags
 
     def compile_file(self, input_file: Path,
                      output_file: Path,
-                     openmp: bool,
+                     config: "BuildConfig",
                      add_flags: Union[None, List[str]] = None):
         '''Compiles a file. It will add the flag for compilation-only
         automatically, as well as the output directives. The current working
@@ -109,12 +119,14 @@ class Compiler(CompilerSuiteTool):
 
         :param input_file: the path of the input file.
         :param output_file: the path of the output file.
-        :param opemmp: whether OpenMP should be used or not.
+        :param config: The BuildConfig, from which compiler profile and OpenMP
+            status are taken.
         :param add_flags: additional compiler flags.
         '''
 
         params: List[Union[Path, str]] = [self._compile_flag]
-        if openmp:
+
+        if config.openmp:
             params.append(self.openmp_flag)
         if add_flags:
             if self.openmp_flag in add_flags:
@@ -127,7 +139,7 @@ class Compiler(CompilerSuiteTool):
         params.extend([input_file.name,
                       self._output_flag, str(output_file)])
 
-        return self.run(cwd=input_file.parent,
+        return self.run(profile=config.profile, cwd=input_file.parent,
                         additional_parameters=params)
 
     def check_available(self) -> bool:
@@ -178,7 +190,9 @@ class Compiler(CompilerSuiteTool):
         version_string = matches.groups()[0]
         # Expect the version to be dot-separated integers.
         try:
-            version = tuple(int(x) for x in version_string.split('.'))
+            # Make mypy happy:
+            version = cast(Tuple[int],
+                           tuple(int(x) for x in version_string.split('.')))
         except ValueError as err:
             raise RuntimeError(f"Unexpected version output format for "
                                f"compiler '{self.name}'. Should be numeric "
@@ -317,14 +331,15 @@ class FortranCompiler(Compiler):
 
     def compile_file(self, input_file: Path,
                      output_file: Path,
-                     openmp: bool,
+                     config: "BuildConfig",
                      add_flags: Union[None, List[str]] = None,
                      syntax_only: Optional[bool] = False):
         '''Compiles a file.
 
         :param input_file: the name of the input file.
         :param output_file: the name of the output file.
-        :param openmp: if compilation should be done with OpenMP.
+        :param config: The BuildConfig, from which compiler profile and OpenMP
+            status are taken.
         :param add_flags: additional flags for the compiler.
         :param syntax_only: if set, the compiler will only do
             a syntax check
@@ -346,7 +361,7 @@ class FortranCompiler(Compiler):
         if self._module_folder_flag and self._module_output_path:
             params.append(self._module_folder_flag)
             params.append(self._module_output_path)
-        super().compile_file(input_file, output_file, openmp=openmp,
+        super().compile_file(input_file, output_file, config=config,
                              add_flags=params)
 
 
@@ -505,8 +520,10 @@ class Craycc(CCompiler):
 
     Cray has two different compilers. Older ones have as version number:
         Cray C : Version 8.7.0  Tue Jul 23, 2024  07:39:46
+
     Newer compiler (several lines, the important one):
         Cray clang version 15.0.1  (66f7391d6a03cf932f321b9f6b1d8612ef5f362c)
+
     We use the beginning ("cray c") to identify the compiler, which works for
     both cray c and cray clang. Then we ignore non-numbers, to reach the
     version number which is then extracted.

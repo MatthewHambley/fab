@@ -33,6 +33,7 @@ class TestLinkExe:
             tool_box=tool_box,
             mpi=False,
             openmp=False,
+            profile="default"
         )
         config.artefact_store[ArtefactSet.OBJECT_FILES] = \
             {'foo': {'foo.o', 'bar.o'}}
@@ -50,8 +51,10 @@ class TestLinkExe:
                                             output_flag=None, openmp_flag=None)
 
             linker = Linker(compiler=mock_compiler)
-            # Mark the linker as available to it can be added to the tool box
+            # Mark the linker as available so it can be added to the tool box
             linker._is_available = True
+            mock_compiler.define_profile("default")
+            linker.define_profile("default")
 
             # Add a custom library to the linker
             linker.add_lib_flags('mylib', ['-L/my/lib', '-lmylib'])

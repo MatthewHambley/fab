@@ -63,6 +63,15 @@ def fixture_tool_box(mock_c_compiler, mock_fortran_compiler, mock_linker):
     return tool_box
 
 
+@pytest.fixture(name="mock_config")
+def fixture_mock_config(tool_box):
+    '''Provides a dummy fixture with mock ToolBox.'''
+    # Avoid cylic import
+    # pylint: disable=import-outside-toplevel
+    from fab.build_config import BuildConfig
+    return BuildConfig(project_label="label", tool_box=tool_box)
+
+
 @pytest.fixture(name="psyclone_lfric_api")
 def fixture_psyclone_lfric_api():
     '''A simple fixture to provide the name of the LFRic API for

@@ -19,7 +19,7 @@ import subprocess
 from typing import Dict, List, Optional, Sequence, Union
 
 from fab.tools.category import Category
-from fab.tools.flags import Flags
+from fab.tools.flags import ProfileFlags
 
 
 class Tool:
@@ -40,7 +40,7 @@ class Tool:
         self._logger = logging.getLogger(__name__)
         self._name = name
         self._exec_name = str(exec_name)
-        self._flags = Flags()
+        self._flags = ProfileFlags()
         self._category = category
         if availability_option:
             self._availability_option = availability_option
@@ -116,18 +116,30 @@ class Tool:
         ''':returns: the category of this tool.'''
         return self._category
 
-    @property
-    def flags(self) -> Flags:
+    def get_flags(self, profile: Optional[str] = None):
         ''':returns: the flags to be used with this tool.'''
-        return self._flags
+        return self._flags[profile]
 
-    def add_flags(self, new_flags: Union[str, List[str]]):
+    def add_flags(self, new_flags: Union[str, List[str]],
+                  profile: Optional[str] = None):
         '''Adds the specified flags to the list of flags.
 
         :param new_flags: A single string or list of strings which are the
             flags to be added.
         '''
-        self._flags.add_flags(new_flags)
+        self._flags.add_flags(new_flags, profile)
+
+    def define_profile(self,
+                       name: str,
+                       inherit_from: Optional[str] = None):
+        '''Defines a new profile name, and allows to specify if this new
+        profile inherit settings from an existing profile.
+
+        :param name: Name of the profile to define.
+        :param inherit_from: Optional name of a profile to inherit
+            settings from.
+        '''
+        self._flags.define_profile(name, inherit_from)
 
     @property
     def logger(self) -> logging.Logger:
@@ -140,6 +152,7 @@ class Tool:
     def run(self,
             additional_parameters: Optional[
                 Union[str, Sequence[Union[Path, str]]]] = None,
+            profile: Optional[str] = None,
             env: Optional[Dict[str, str]] = None,
             cwd: Optional[Union[Path, str]] = None,
             capture_output=True) -> str:
@@ -160,8 +173,7 @@ class Tool:
         :raises RuntimeError: if the code is not available.
         :raises RuntimeError: if the return code of the executable is not 0.
         """
-
-        command = [self.exec_name] + self.flags
+        command = [self.exec_name] + self.get_flags(profile)
         if additional_parameters:
             if isinstance(additional_parameters, str):
                 command.append(additional_parameters)

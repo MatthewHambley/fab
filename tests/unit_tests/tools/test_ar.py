@@ -19,7 +19,7 @@ def test_ar_constructor():
     assert ar.category == Category.AR
     assert ar.name == "ar"
     assert ar.exec_name == "ar"
-    assert ar.flags == []
+    assert ar.get_flags() == []
 
 
 def test_ar_check_available():
