@@ -78,25 +78,31 @@ class Compiler(CompilerSuiteTool):
 
     @property
     def openmp(self) -> bool:
-        ''':returns: if the compiler supports openmp or not
-        '''
+        """
+        :returns: compiler's OpenMP support.
+        """
         # It is important not to use `_openmp_flag` directly, since a compiler
         # wrapper overwrites `openmp_flag`.
         return self.openmp_flag != ""
 
     @property
     def openmp_flag(self) -> str:
-        '''Returns the flag to enable OpenMP.'''
+        """
+        :returns: compiler argument to enable OpenMP.
+        """
         return self._openmp_flag
 
     @property
     def output_flag(self) -> str:
-        '''Returns the flag that specifies the output flag.'''
+        """
+        :returns: compiler argument for output file.
+        """
         return self._output_flag
 
     def get_hash(self) -> int:
-        ''':returns: a hash based on the compiler name and version.
-        '''
+        """
+        :returns: hash of compiler name and version.
+        """
         return (zlib.crc32(self.name.encode()) +
                 zlib.crc32(self.get_version_string().encode()))
 
