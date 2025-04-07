@@ -71,7 +71,9 @@ class Compiler(CompilerSuiteTool):
 
     @property
     def mpi(self) -> bool:
-        '''Returns whether this compiler supports MPI or not.'''
+        """
+        :returns: whether this compiler supports MPI or not.
+        """
         return self._mpi
 
     @property
