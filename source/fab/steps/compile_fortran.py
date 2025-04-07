@@ -231,7 +231,7 @@ def store_artefacts(compiled_files: Dict[Path, CompiledFile],
     lookup = {c.input_fpath: c for c in compiled_files.values()}
     for root, source_files in build_lists.items():
         new_objects = {lookup[af.fpath].output_fpath for af in source_files}
-        artefact_store.update_dict(ArtefactSet.OBJECT_FILES, root, new_objects)
+        artefact_store.update_dict(ArtefactSet.OBJECT_FILES, new_objects, root)
 
 
 def process_file(arg: Tuple[AnalysedFortran, MpCommonArgs]) \

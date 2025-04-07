@@ -37,10 +37,7 @@ class TestArchiveObjects:
 
         config = BuildConfig('proj', stub_tool_box, fab_workspace=Path('/fab'))
         for target in targets:
-            config.artefact_store.update_dict(
-                ArtefactSet.OBJECT_FILES, target,
-                {f'{target}.o', 'util.o'}
-            )
+            config.artefact_store.update_dict(ArtefactSet.OBJECT_FILES, {f'{target}.o', 'util.o'}, target)
 
         with warns(UserWarning,
                    match="_metric_send_conn not set, cannot send metrics"):
@@ -65,8 +62,7 @@ class TestArchiveObjects:
         record = fake_process.register(command)
 
         config = BuildConfig('proj', stub_tool_box, fab_workspace=Path('/fab'))
-        config.artefact_store.update_dict(
-            ArtefactSet.OBJECT_FILES, None, {'util1.o', 'util2.o'})
+        config.artefact_store.update_dict(ArtefactSet.OBJECT_FILES, {'util1.o', 'util2.o'}, None)
 
         with warns(UserWarning,
                    match="_metric_send_conn not set, cannot send metrics"):
