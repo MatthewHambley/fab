@@ -8,7 +8,7 @@ Tests the PSyclone tool.
 """
 from importlib import reload
 from pathlib import Path
-import typing
+import typing  # Needed for monkey patching
 from typing import Tuple
 from unittest.mock import Mock
 
@@ -18,7 +18,7 @@ from pytest_subprocess.fake_process import FakeProcess
 from tests.conftest import call_list, not_found_callback
 
 from fab.tools.category import Category
-import fab.tools.psyclone
+import fab.tools.psyclone  # Needed for mockery
 from fab.tools.psyclone import Psyclone
 
 
@@ -33,67 +33,49 @@ def test_constructor():
     assert psyclone.flags == []
 
 
-def test_check_available_2_4_0(fake_process: FakeProcess) -> None:
+@mark.parametrize("version", ["2.4.0", "2.5.0", "3.0.0", "3.1.0"])
+def test_check_available_and_version(version: str,
+                                     fake_process: FakeProcess) -> None:
     """
-    Tests availability check.
+    Tests the is_available functionality and version number detection
+    with PSyclone. Note that the version number is only used internally,
+    so we test with the private attribute.
     """
-    fake_process.register(['psyclone', '--version', 'does_not_exist'],
-                          stdout='PSyclone version: 2.4.0')
-
-    psyclone = Psyclone()
-    assert psyclone.check_available() is True
-    assert call_list(fake_process) == [
-        ['psyclone', '--version', 'does_not_exist']
-    ]
-
-
-def test_check_available_2_5_0(fake_process: FakeProcess) -> None:
-    """
-    Tests availability check for v2.5.0.
-    """
-    fake_process.register(['psyclone', '--version', 'does_not_exist'],
-                          stdout='PSyclone version: 2.5.0')
-    fake_process.register(['psyclone', '-api', 'nemo',
-                           fab.tools.psyclone.__file__])
+    version_command = ['psyclone', '--version']
+    fake_process.register(version_command,
+                          stdout='PSyclone version: ' + version)
 
     psyclone = Psyclone()
 
-    assert psyclone.check_available() is True
-    assert call_list(fake_process) == [
-        ['psyclone', '--version', 'does_not_exist'],
-        ['psyclone', '-api', 'nemo', fab.tools.psyclone.__file__]
-    ]
-
-
-def test_check_available_post_2_5_0(fake_process: FakeProcess) -> None:
-    """
-    Tests availability check post v2.5.0.
-    """
-    fake_process.register(['psyclone', '--version', 'does_not_exist'],
-                          stdout='PSyclone version: 2.5.0.1')
-
-    psyclone = Psyclone()
-
+    version_tuple = tuple(int(i) for i in version.split("."))
     assert psyclone.check_available()
-    # ToDo: accessing private members.
-    assert psyclone._version == (2, 5, 0, 1)
-    assert call_list(fake_process) == [
-        ['psyclone', '--version', 'does_not_exist']
-    ]
+    assert psyclone._version == version_tuple
+    assert call_list(fake_process) == [version_command]
+
+
+def test_check_available_errors(fake_process: FakeProcess) -> None:
+    """
+    Tests lack of availability.
+    """
+    version_command = ['psyclone', '--version']
+    fake_process.register(version_command, callback=not_found_callback)
+
+    psyclone = Psyclone()
+    assert psyclone.check_available() is False
 
 
 def test_not_available(fake_process: FakeProcess) -> None:
     """
     Tests lack of availability.
     """
-    fake_process.register(['psyclone', '--version', 'does_not_exist'],
+    fake_process.register(['psyclone', '--version'],
                           callback=not_found_callback)
 
     psyclone = Psyclone()
 
     assert psyclone.check_available() is False
     assert call_list(fake_process) == [
-        ['psyclone', '--version', 'does_not_exist']
+        ['psyclone', '--version']
     ]
 
 
@@ -101,7 +83,7 @@ def test_check_available_bad_version(fake_process: FakeProcess) -> None:
     """
     Tests executable which returns an unexpected version string.
     """
-    fake_process.register(['psyclone', '--version', 'does_not_exist'],
+    fake_process.register(['psyclone', '--version'],
                           stdout='PSyclone version: NOT_A_NUMBER.4.0')
 
     psyclone = Psyclone()
@@ -116,7 +98,7 @@ def test_check_process_missing(fake_process: FakeProcess) -> None:
     """
     Tests processing with a missing executable.
     """
-    fake_process.register(['psyclone', '--version', 'does_not_exist'],
+    fake_process.register(['psyclone', '--version'],
                           callback=not_found_callback)
 
     psyclone = Psyclone()
@@ -130,38 +112,33 @@ def test_check_process_missing(fake_process: FakeProcess) -> None:
 
 def test_processing_errors_without_api(fake_process: FakeProcess) -> None:
     """
-    Tests error conditions around no specified API.
-
-    File is transformed but PSyKAl pattern is not in use.
+    Test all processing errors in PSyclone if no API is specified.
     """
-    fake_process.register(['psyclone', '--version', 'does_not_exist'],
-                          stdout='PSyclone version: 2.6.0')
+    version_command = ['psyclone', '--version']
+    fake_process.register(version_command, stdout='PSyclone version: 3.0.0')
 
     psyclone = Psyclone()
     config = Mock()
 
     with raises(RuntimeError) as err:
         psyclone.process(config,
-                         Path("x90file"),
+                         Path('x90file'),
                          api=None,
-                         psy_file=Path("psy_file"))
-    assert str(err.value).startswith(
-        "PSyclone called without api, but psy_file is specified"
-    )
+                         psy_file=Path('psy_file'))
+    assert str(err.value) == "PSyclone called without api, but psy_file is specified."
+
     with raises(RuntimeError) as err:
         psyclone.process(config,
-                         Path("x90file"),
+                         Path('x90file'),
                          api=None,
-                         alg_file=Path("alg_file"))
-    assert ("PSyclone called without api, but alg_file is specified"
-            in str(err.value))
+                         alg_file=Path('alg_file'))
+    assert str(err.value) == "PSyclone called without api, but alg_file is specified."
+
     with raises(RuntimeError) as err:
         psyclone.process(config,
-                         Path("x90file"),
+                         Path('x90file'),
                          api=None)
-    assert str(err.value).startswith(
-        "PSyclone called without api, but transformed_file is not specified"
-    )
+    assert str(err.value) == "PSyclone called without api, but transformed_file is not specified."
 
 
 @mark.parametrize("api", ["dynamo0.3", "lfric"])
@@ -170,7 +147,7 @@ def test_processing_errors_with_api(api: str,
     """
     Tests potential processing errors with unspecified API.
     """
-    version_command = ['psyclone', '--version', 'does_not_exist']
+    version_command = ['psyclone', '--version']
     fake_process.register(version_command, stdout='PSyclone version: 2.6.0')
 
     psyclone = Psyclone()
@@ -214,18 +191,13 @@ def test_process_api_old_psyclone(api: Tuple[str, str], version: str,
                                   fake_process: FakeProcess) -> None:
     """
     Tests old style API support with PSyclone 2.5.0 and earlier.
-
-    ToDo: v2.5.0 special case is highly dubious.
     """
     api_in, api_out = api
 
-    version_command = ['psyclone', '--version', 'does_not_exist']
+    version_command = ['psyclone', '--version']
     fake_process.register(version_command,
                           stdout='PSyclone version: ' + version)
-    if version == '2.5.0':
-        random_command = ['psyclone', '-api', 'nemo',
-                          fab.tools.psyclone.__file__]
-        fake_process.register(random_command, returncode=1)
+
     process_command = ['psyclone', '-api', api_out, '-opsy', 'psy_file',
                        '-oalg', 'alg_file', '-l', 'all', '-s', 'script_called',
                        '-c', 'psyclone.cfg', '-d', 'root1', '-d', 'root2',
@@ -244,14 +216,9 @@ def test_process_api_old_psyclone(api: Tuple[str, str], version: str,
                      kernel_roots=["root1", "root2"],
                      additional_parameters=["-c", "psyclone.cfg"])
 
-    if version == '2.5.0':
-        assert call_list(fake_process) == [
-            version_command, random_command, process_command
-        ]
-    else:
-        assert call_list(fake_process) == [
-            version_command, process_command
-        ]
+    assert call_list(fake_process) == [
+        version_command, process_command
+    ]
 
 
 @mark.parametrize("version", ["2.4.0", "2.5.0"])
@@ -259,16 +226,10 @@ def test_process_no_api_old_psyclone(version: str,
                                      fake_process: FakeProcess) -> None:
     """
     Tests unspecified API for PSyclone 2.5.0 and older.
-
-    ToDo: v2.5.0 special case is highly dubious.
     """
-    version_command = ['psyclone', '--version', 'does_not_exist']
+    version_command = ['psyclone', '--version']
     fake_process.register(version_command,
                           stdout='PSyclone version: ' + version)
-    if version == '2.5.0':
-        random_command = ['psyclone', '-api', 'nemo',
-                          fab.tools.psyclone.__file__]
-        fake_process.register(random_command, returncode=1)
     process_command = ['psyclone', '-api', 'nemo', '-opsy', 'psy_file',
                        '-l', 'all', '-s', 'script_called',
                        '-c', 'psyclone.cfg', '-d', 'root1', '-d', 'root2',
@@ -286,14 +247,9 @@ def test_process_no_api_old_psyclone(version: str,
                      kernel_roots=["root1", "root2"],
                      additional_parameters=["-c", "psyclone.cfg"])
 
-    if version == '2.5.0':
-        assert call_list(fake_process) == [
-            version_command, random_command, process_command
-        ]
-    else:
-        assert call_list(fake_process) == [
-            version_command, process_command
-        ]
+    assert call_list(fake_process) == [
+        version_command, process_command
+    ]
 
 
 @mark.parametrize("version", ["2.4.0", "2.5.0"])
@@ -304,127 +260,132 @@ def test_process_nemo_api_old_psyclone(version: str,
 
     ToDo: The wierd extra bits performed for 2.5.0 look highly dubious.
     """
-    version_command = ['psyclone', '--version', 'does_not_exist']
+    version_command = ['psyclone', '--version']
     fake_process.register(version_command,
                           stdout='PSyclone version: ' + version)
     if version == '2.5.0':
         random_command = ['psyclone', '-api', 'nemo',
                           fab.tools.psyclone.__file__]
         fake_process.register(random_command, returncode=1)
-    process_command = ['psyclone', '-api', 'nemo', '-opsy', 'psy_file',
-                       '-l', 'all', '-s', 'script_called',
-                       '-c', 'psyclone.cfg', '-d', 'root1', '-d', 'root2',
-                       'x90_file']
-    fake_process.register(process_command)
+    psyclone_command = ['psyclone', '-api', 'nemo', '-opsy', 'psy_file',
+                        '-l', 'all', '-s', 'script_called',
+                        '-c', 'psyclone.cfg', '-d', 'root1', '-d', 'root2',
+                        'x90_file']
+    fake_process.register(psyclone_command)
 
     psyclone = Psyclone()
+
     config = Mock()
 
     psyclone.process(config=config,
                      api="nemo",
-                     x90_file=Path("x90_file"),
-                     transformed_file=Path("psy_file"),
+                     x90_file=Path('x90_file'),
+                     transformed_file=Path('psy_file'),
                      transformation_script=lambda x, y: Path('script_called'),
                      kernel_roots=["root1", "root2"],
                      additional_parameters=["-c", "psyclone.cfg"])
 
-    if version == '2.5.0':
-        assert call_list(fake_process) == [
-            version_command, random_command, process_command
-        ]
-    else:
-        assert call_list(fake_process) == [
-            version_command, process_command
-        ]
+    assert call_list(fake_process) == [
+        version_command, psyclone_command
+    ]
 
 
-@mark.parametrize("api", [("dynamo0.3", "lfric"),
-                          ("lfric", "lfric"),
-                          ("gocean1.0", "gocean"),
-                          ("gocean", "gocean")
-                          ])
+@mark.parametrize("api",
+                  [
+                      ("dynamo0.3", "lfric"),
+                      ("lfric", "lfric"),
+                      ("gocean1.0", "gocean"),
+                      ("gocean", "gocean")
+                  ])
 def test_process_api_new_psyclone(api: Tuple[str, str],
                                   fake_process: FakeProcess) -> None:
     """
-    Tests API handling of post 2.5.0 PSyclone.
+    Test running PSyclone 3.0.0. It uses new API names, and we need to
+    check that the old style names are converted to the new names.
     """
     api_in, api_out = api
 
-    version_command = ['psyclone', '--version', 'does_not_exist']
-    fake_process.register(version_command, stdout='PSyclone version: 2.6.0')
-    process_command = ['psyclone', '--psykal-dsl', api_out,
-                       '-opsy', 'psy_file', '-oalg', 'alg_file', '-l', 'all',
-                       '-s', 'script_called', '-c', 'psyclone.cfg',
-                       '-d', 'root1', '-d', 'root2', 'x90_file']
-    fake_process.register(process_command)
+    version_command = ['psyclone', '--version']
+    fake_process.register(version_command, stdout='PSyclone version: 3.0.0')
+
+    psyclone_command = ['psyclone', '--psykal-dsl', api_out,
+                        '-opsy', 'psy_file', '-oalg', 'alg_file', '-l', 'all',
+                        '-s', 'script_called', '-c', 'psyclone.cfg',
+                        '-d', 'root1', '-d', 'root2', 'x90_file']
+    fake_process.register(psyclone_command)
 
     psyclone = Psyclone()
     config = Mock()
 
     psyclone.process(config=config,
                      api=api_in,
-                     x90_file=Path("x90_file"),
-                     psy_file=Path("psy_file"),
+                     x90_file=Path('x90_file'),
+                     psy_file=Path('psy_file'),
                      alg_file="alg_file",
                      transformation_script=lambda x, y: Path('script_called'),
                      kernel_roots=["root1", "root2"],
                      additional_parameters=["-c", "psyclone.cfg"])
 
     assert call_list(fake_process) == [
-        version_command, process_command
+        version_command, psyclone_command
     ]
 
 
 def test_process_no_api_new_psyclone(fake_process: FakeProcess) -> None:
     """
-    Tests unspecified API with post 2.5.0 PSyclone.
+    Test running the PSyclone 3.0.0 without an API, i.e. as transformation
+    only.
     """
-    version_command = ['psyclone', '--version', 'does_not_exist']
-    fake_process.register(version_command, stdout='PSyclone version: 2.6.0')
-    process_command = ['psyclone', '-o', 'psy_file', '-l', 'all',
-                       '-s', 'script_called', '-c', 'psyclone.cfg',
-                       '-d', 'root1', '-d', 'root2', 'x90_file']
-    fake_process.register(process_command)
+    version_command = ['psyclone', '--version']
+    fake_process.register(version_command, stdout='PSyclone version: 3.0.0')
+
+    psyclone_command = ['psyclone', '-o', 'psy_file', '-l', 'all',
+                        '-s', 'script_called', '-c', 'psyclone.cfg',
+                        '-d', 'root1', '-d', 'root2', 'x90_file']
+    fake_process.register(psyclone_command)
 
     psyclone = Psyclone()
     config = Mock()
 
     psyclone.process(config=config,
                      api="",
-                     x90_file=Path("x90_file"),
-                     transformed_file=Path("psy_file"),
+                     x90_file=Path('x90_file'),
+                     transformed_file=Path('psy_file'),
                      transformation_script=lambda x, y: Path('script_called'),
                      kernel_roots=["root1", "root2"],
                      additional_parameters=["-c", "psyclone.cfg"])
 
     assert call_list(fake_process) == [
-        version_command, process_command
+        version_command, psyclone_command
     ]
 
 
 def test_process_nemo_api_new_psyclone(fake_process: FakeProcess) -> None:
     """
-    Tests NEMO API is recognised in post 2.5.0 versions.
+    Test running PSyclone 3.0.0 and test that backwards compatibility of
+    using the nemo api works, i.e. '-api nemo' is just removed.
     """
-    version_command = ['psyclone', '--version', 'does_not_exist']
-    fake_process.register(version_command, stdout='PSyclone version: 2.6.0')
-    process_command = ['psyclone', '-o', 'psy_file', '-l', 'all', '-s', 'script_called',
-                       '-c', 'psyclone.cfg', '-d', 'root1', '-d', 'root2', 'x90_file']
-    fake_process.register(process_command)
+    version_command = ['psyclone', '--version']
+    fake_process.register(version_command, stdout='PSyclone version: 3.0.0')
+
+    psyclone_command = ['psyclone', '-o', 'psy_file', '-l', 'all',
+                        '-s', 'script_called', '-c', 'psyclone.cfg',
+                        '-d', 'root1', '-d', 'root2', 'x90_file']
+    fake_process.register(psyclone_command)
 
     psyclone = Psyclone()
     config = Mock()
 
     psyclone.process(config=config,
                      api="nemo",
-                     x90_file=Path("x90_file"),
-                     transformed_file=Path("psy_file"),
+                     x90_file=Path('x90_file'),
+                     transformed_file=Path('psy_file'),
                      transformation_script=lambda x, y: Path('script_called'),
                      kernel_roots=["root1", "root2"],
                      additional_parameters=["-c", "psyclone.cfg"])
 
     assert call_list(fake_process) == [
-        version_command, process_command
+        version_command, psyclone_command
     ]
 
 
