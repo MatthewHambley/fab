@@ -4,7 +4,7 @@
 # which you should have received as part of this distribution
 ##############################################################################
 """
-Common fixtures for PyTest.
+Fixtures and helpers for testing.
 """
 from typing import Dict, List, Optional
 
@@ -17,11 +17,22 @@ from fab.tools.tool_box import ToolBox
 
 
 def not_found_callback(process):
+    """
+    Raises a FileNotFoundError.
+
+    This is useful for generating this specific error when mocking
+    subprocesses.
+    """
     process.returncode = 1
     raise FileNotFoundError("Executable file missing")
 
 
 def call_list(fake_process: FakeProcess) -> List[List[str]]:
+    """
+    Converts FakeProcess calls to strings.
+
+    :returns: List of argument strings per call.
+    """
     result: List[List[str]] = []
     for call in fake_process.calls:
         result.append([str(arg) for arg in call])
@@ -29,6 +40,13 @@ def call_list(fake_process: FakeProcess) -> List[List[str]]:
 
 
 def arg_list(record: ProcessRecorder) -> List[Dict[str, str]]:
+    """
+    Converts ProcessRecorder calls to subprocess arguments.
+
+    This gives access to e.g. pwd specified with each call.
+
+    :returns: Dictionary of argument passed to subprocess per call.
+    """
     result: List[Dict[str, str]] = []
     for call in record.calls:
         if call.kwargs is None:
@@ -56,6 +74,11 @@ class ExtendedRecorder:
         return calls
 
     def extras(self) -> List[Dict[str, Optional[str]]]:
+        """
+        Lists arguments passed to subprocess.
+
+        This allows .e.g. pwd to be seen, if set.
+        """
         args: List[Dict[str, Optional[str]]] = []
         for call in self.recorder.calls:
             things: Dict[str, Optional[str]] = {}
@@ -84,6 +107,9 @@ def subproc_record(fake_process: FakeProcess) -> ExtendedRecorder:
 
 @fixture(scope='function')
 def stub_fortran_compiler() -> FortranCompiler:
+    """
+    Provides a minimal Fortran compiler.
+    """
     compiler = FortranCompiler('some Fortran compiler', 'sfc', 'stub',
                                r'([\d.]+)')
     return compiler
@@ -109,6 +135,11 @@ def stub_linker(stub_c_compiler) -> Linker:
 
 
 def return_true():
+    """
+    Returns true.
+
+    Useful when monkeypatching methods.
+    """
     return True
 
 
@@ -118,7 +149,8 @@ def stub_tool_box(stub_fortran_compiler,
                   stub_linker,
                   monkeypatch) -> ToolBox:
     """
-    Provides a minimal toolbox containing just a Fortran compiler and a linker.
+    Provides a minimal toolbox containing just Fortran and C compilers and a
+    linker.
     """
     monkeypatch.setattr(stub_fortran_compiler, 'check_available', return_true)
     monkeypatch.setattr(stub_c_compiler, 'check_available', return_true)
