@@ -207,7 +207,7 @@ class TestTransformationScript:
     """
     def test_transformation_script(self) -> None:
         psyclone_tool = Psyclone()
-        psyclone_tool._version = (2, 4, 0)
+        psyclone_tool._version = (3, 0, 0)
         psyclone_tool._is_available = True
 
         mock_transformation_script = mock.Mock(return_value=__file__)
@@ -227,7 +227,7 @@ class TestTransformationScript:
             mock_transformation_script.assert_called_once_with(Path(__file__), None)
             # check transformation_script is passed to psyclone command with '-s'
             mock_run_command.assert_called_with(
-                additional_parameters=['-api', 'lfric',
+                additional_parameters=['--psykal-dsl', 'lfric',
                                        '-opsy',  Path(__file__),
                                        '-oalg', Path(__file__),
                                        '-l', 'all',
