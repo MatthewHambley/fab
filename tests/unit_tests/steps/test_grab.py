@@ -4,10 +4,11 @@
 # which you should have received as part of this distribution
 ##############################################################################
 """
-Validate methods to obtain souece.
+Validate methods to obtain source.
 """
 from pathlib import Path
 
+from pyfakefs.fake_filesystem import FakeFilesystem
 from pytest import mark, warns
 from pytest_subprocess.fake_process import FakeProcess
 
@@ -29,7 +30,7 @@ class TestGrabFolder:
         ]
     )
     def test_source_path(self, source, expected,
-                         fs, fake_process: FakeProcess) -> None:
+                         fs: FakeFilesystem, fake_process: FakeProcess) -> None:
         """
         Tests file directory grabbery.
         """
@@ -53,7 +54,7 @@ class TestGrabFcm:
     """
     Tests grabbing from FCM.
     """
-    def test_no_revision(self, fs, fake_process: FakeProcess) -> None:
+    def test_no_revision(self, fs: FakeFilesystem, fake_process: FakeProcess) -> None:
         """
         Tests no revision, "head of branch" grab.
         """
@@ -74,7 +75,7 @@ class TestGrabFcm:
                        dst_label='bar')
         assert fake_process.call_count(grab_command) == 1
 
-    def test_revision(self, fs, fake_process: FakeProcess) -> None:
+    def test_revision(self, fs: FakeFilesystem, fake_process: FakeProcess) -> None:
         """
         Tests grabbing a specific revision.
         """

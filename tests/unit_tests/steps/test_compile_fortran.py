@@ -3,9 +3,9 @@ from typing import Dict
 from unittest.mock import Mock
 from warnings import catch_warnings
 
+from pyfakefs.fake_filesystem import FakeFilesystem
 from pytest import fixture, mark, raises
 from pytest_subprocess.fake_process import FakeProcess
-from pyfakefs.fake_filesystem import FakeFilesystem
 
 from fab.artefacts import ArtefactSet, ArtefactStore
 from fab.build_config import BuildConfig, FlagsConfig
@@ -40,7 +40,8 @@ def artefact_store(analysed_files):
 
 
 def test_compile_cc_wrong_compiler(stub_tool_box,
-                                   fs, fake_process: FakeProcess) -> None:
+                                   fs: FakeFilesystem,
+                                   fake_process: FakeProcess) -> None:
     """
     Tests specifying the wrong compiler causes an error.
 
@@ -286,7 +287,7 @@ class TestProcessFile:
             pb / 'mod_def_1.17b90457f.mod'
         }
 
-    def test_file_hash(self, content, fs, fake_process: FakeProcess) -> None:
+    def test_file_hash(self, content, fs: FakeFilesystem, fake_process: FakeProcess) -> None:
         """
         Tests changing source hash leads to new module and object hashes.
         """
@@ -336,7 +337,7 @@ class TestProcessFile:
             pb / 'mod_def_1.17b904580.mod'
         }
 
-    def test_flags_hash(self, content, fs, fake_process: FakeProcess) -> None:
+    def test_flags_hash(self, content, fs: FakeFilesystem, fake_process: FakeProcess) -> None:
         """
         Tests changing compiler arguments changes generated object and
         module hashes. Not source modules.
@@ -388,7 +389,7 @@ class TestProcessFile:
             pb / 'mod_def_1.17b90457f.mod'
         }
 
-    def test_deps_hash(self, content, fs, fake_process: FakeProcess) -> None:
+    def test_deps_hash(self, content, fs: FakeFilesystem, fake_process: FakeProcess) -> None:
         """
         Tests changing a module dependency checksum causes a rebuild.
         The generated object hash should change but the generated module
@@ -440,7 +441,7 @@ class TestProcessFile:
             pb / 'mod_def_1.17b90457f.mod'
         }
 
-    def test_mod_missing(self, content, fs, fake_process: FakeProcess) -> None:
+    def test_mod_missing(self, content, fs: FakeFilesystem, fake_process: FakeProcess) -> None:
         """
         Tests compilation on missing module.
         """
@@ -493,7 +494,7 @@ class TestProcessFile:
         ('9.8.7', '1a5164b89', '21ba7de93')
     ])
     def test_obj_missing(self, content, version, mod_hash, obj_hash,
-                         fs, fake_process: FakeProcess) -> None:
+                         fs: FakeFilesystem, fake_process: FakeProcess) -> None:
         """
         Tests compilation of missing object. Also tests that different compiler
         version numbers lead to different hashes.

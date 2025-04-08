@@ -8,6 +8,7 @@ Test for the archive step.
 """
 from pathlib import Path
 
+from pyfakefs.fake_filesystem import FakeFilesystem
 from pytest import raises, warns
 from pytest_subprocess.fake_process import FakeProcess
 
@@ -22,7 +23,7 @@ class TestArchiveObjects:
     Tests the archive step.
     """
     def test_for_exes(self, stub_tool_box: ToolBox,
-                      fs, fake_process: FakeProcess) -> None:
+                      fs: FakeFilesystem, fake_process: FakeProcess) -> None:
         """
         Tests prior to linking an executable.
         """
@@ -52,7 +53,7 @@ class TestArchiveObjects:
         }
 
     def test_for_library(self, stub_tool_box: ToolBox,
-                         fs, fake_process: FakeProcess) -> None:
+                         fs: FakeFilesystem, fake_process: FakeProcess) -> None:
         """
         Tests creating an object archiving or prior to a shared library.
         """
