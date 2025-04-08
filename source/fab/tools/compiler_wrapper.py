@@ -89,8 +89,13 @@ class CompilerWrapper(Compiler):
 
     @property
     def flags(self) -> Flags:
-        ''':returns: the flags to be used with this tool.'''
-        return Flags(self._compiler.flags + self._flags)
+        """
+        :returns: Arguments to be passed to this tool.
+
+        This does not include the arguments which the wrapped compiler will
+        receive.
+        """
+        return Flags(self._flags)
 
     @property
     def suite(self) -> str:
@@ -162,7 +167,7 @@ class CompilerWrapper(Compiler):
             # which also supports the syntax_only flag anyway)
             self._compiler = cast(FortranCompiler, self._compiler)
             self._compiler.compile_file(input_file, output_file, openmp=openmp,
-                                        add_flags=self._flags + add_flags,
+                                        add_flags=self.flags + add_flags,
                                         syntax_only=syntax_only,
                                         )
         else:
@@ -170,7 +175,7 @@ class CompilerWrapper(Compiler):
                 raise RuntimeError(f"Syntax-only cannot be used with compiler "
                                    f"'{self.name}'.")
             self._compiler.compile_file(input_file, output_file, openmp=openmp,
-                                        add_flags=self._flags+add_flags
+                                        add_flags=self.flags + add_flags
                                         )
         self._compiler.change_exec_name(orig_compiler_name)
 

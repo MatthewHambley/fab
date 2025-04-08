@@ -283,18 +283,17 @@ def test_c_with_add_args(subproc_record: ExtendedRecorder) -> None:
 
 def test_arguments_independent(fake_process: FakeProcess) -> None:
     """
-    Tests arguments set in the base compiler are accessed in the wrapper, but
-    not the other way round.
+    Tests arguments set in the base compiler and the wrapper are independent
+    of each other.
     """
     compiler = CCompiler('Some C compiler', 'scc', 'some', r'([\d.]+)',
                          openmp_flag='-omp')
     mpicc = Mpicc(compiler)
     assert compiler.flags == []
     assert mpicc.flags == []
-    # Setting flags in gcc must become visible in the wrapper compiler:
     compiler.add_flags(["-a", "-b"])
     assert compiler.flags == ["-a", "-b"]
-    assert mpicc.flags == ["-a", "-b"]
+    assert mpicc.flags == []
     assert mpicc.openmp_flag == compiler.openmp_flag
 
     # Test  a compiler wrapper correctly queries the wrapper compiler for
@@ -318,18 +317,21 @@ def test_arguments_independent(fake_process: FakeProcess) -> None:
     # And the compiler wrapper should reports the wrapped compiler's flag
     # followed by the wrapper flag (i.e. the wrapper flag can therefore
     # overwrite the wrapped compiler's flags)
-    assert mpicc.flags == ["-a", "-b", "-d", "-e"]
+    assert mpicc.flags == ["-d", "-e"]
 
 
-def test_cflags_with_add_arg(stub_c_compiler: CCompiler,
-                             fake_process: FakeProcess) -> None:
+def test_c_args_with_add_arg(stub_c_compiler: CCompiler,
+                             fake_process: FakeProcess,
+                             monkeypatch) -> None:
     """
     Tests arguments set against the base compiler manifest in the wrapper
     even when additional arguments are specified.
     """
-    command = ['mpicc', '-a', '-b', '-c', '-d', '-e', '-f', 'a.f90', '-o', 'a.o']
+    command = ['mpicc', '-a', '-b', '-c', '-d', '-e', '-f',
+               'a.f90', '-o', 'a.o']
     fake_process.register(command)
 
+    monkeypatch.delenv('CFLAGS', raising=False)
     mpicc = Mpicc(stub_c_compiler)
     stub_c_compiler.add_flags(["-a", "-b"])
     mpicc.add_flags(["-d", "-e"])
@@ -343,7 +345,8 @@ def test_cflags_with_add_arg(stub_c_compiler: CCompiler,
 
 
 def test_arguments_without_add_arg(stub_c_compiler: CCompiler,
-                                   fake_process: FakeProcess) -> None:
+                                   fake_process: FakeProcess,
+                                   monkeypatch) -> None:
     """
     Tests arguments set against the base compiler will be set for the wrapper
     when no additional flags are specified.
@@ -351,6 +354,7 @@ def test_arguments_without_add_arg(stub_c_compiler: CCompiler,
     command = ['mpicc', '-a', '-b', '-c', '-d', '-e', 'a.f90', '-o', 'a.o']
     fake_process.register(command)
 
+    monkeypatch.delenv('CFLAGS', raising=False)
     mpicc = Mpicc(stub_c_compiler)
     stub_c_compiler.add_flags(["-a", "-b"])
     mpicc.add_flags(["-d", "-e"])
