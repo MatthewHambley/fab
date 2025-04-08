@@ -92,7 +92,7 @@ def test_run_missing(fake_process: FakeProcess) -> None:
     with raises(RuntimeError) as err:
         tool.run("--ops")
     assert str(err.value).startswith(
-        "Command 'stool --ops' could not be executed."
+        "Unable to execute command: ['stool', '--ops']"
     )
 
 
@@ -160,7 +160,5 @@ class TestToolRun:
         tool = Tool('some tool', 'tool', Category.MISC)
         with raises(RuntimeError) as err:
             tool.run()
-        assert str(err.value).startswith(
-            "Command 'tool' could not be executed."
-        )
+        assert str(err.value) == "Unable to execute command: ['tool']"
         assert call_list(fake_process) == [['tool']]
