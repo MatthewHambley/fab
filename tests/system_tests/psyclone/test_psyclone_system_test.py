@@ -213,7 +213,7 @@ class TestTransformationScript:
         mock_transformation_script = mock.Mock(return_value=__file__)
         with mock.patch('fab.tools.psyclone.Psyclone.run') as mock_run_command:
             mock_transformation_script.return_value = Path(__file__)
-            psyclone_tool.process(api='dynamo0.3',
+            psyclone_tool.process(api='lfric',
                                   x90_file=Path(__file__),
                                   psy_file=Path(__file__),
                                   alg_file=Path(__file__),
@@ -227,7 +227,7 @@ class TestTransformationScript:
             mock_transformation_script.assert_called_once_with(Path(__file__), None)
             # check transformation_script is passed to psyclone command with '-s'
             mock_run_command.assert_called_with(
-                additional_parameters=['-api', 'dynamo0.3',
+                additional_parameters=['-api', 'lfric',
                                        '-opsy',  Path(__file__),
                                        '-oalg', Path(__file__),
                                        '-l', 'all',
