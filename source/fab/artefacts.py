@@ -83,7 +83,7 @@ class ArtefactStore(dict):
 
     def update_dict(self, collection: Union[str, ArtefactSet],
                     values: Union[str, Iterable],
-                    key: Optional[str]):
+                    key: Optional[str] = None):
         """
         Modifies data associated with artefact set.
 

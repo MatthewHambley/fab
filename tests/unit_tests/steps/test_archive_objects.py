@@ -12,77 +12,88 @@ from pyfakefs.fake_filesystem import FakeFilesystem
 from pytest import raises, warns
 from pytest_subprocess.fake_process import FakeProcess
 
+from tests.conftest import call_list
+
 from fab.artefacts import ArtefactSet
 from fab.build_config import BuildConfig
 from fab.steps.archive_objects import archive_objects
-from fab.tools import Category, ToolBox
+from fab.tools.category import Category
 
 
 class TestArchiveObjects:
     """
-    Tests the archive step.
+    Test the achive step.
     """
-    def test_for_exes(self, stub_tool_box: ToolBox,
-                      fs: FakeFilesystem, fake_process: FakeProcess) -> None:
+    def test_for_exes(self, stub_tool_box,
+                      fake_process: FakeProcess,
+                      fs: FakeFilesystem) -> None:
         """
-        Tests prior to linking an executable.
+        As used when archiving before linking exes.
         """
         version_command = ['ar', '--version']
-        fake_process.register(version_command)
-        command1 = ['ar', 'cr', '/fab/proj/build_output/prog1.a', 'prog1.o', 'util.o']
-        fake_process.register(command1)
-        command2 = ['ar', 'cr', '/fab/proj/build_output/prog2.a', 'prog2.o', 'util.o']
-        fake_process.register(command2)
-
+        fake_process.register(version_command, stdout='1.2.3')
+        commands = []
+        commands.append(version_command)
         targets = ['prog1', 'prog2']
+        for target in targets:
+            ar_command = ['ar', 'cr', f'/fab/proj/build_output/{target}.a',
+                          f'{target}.o', 'util.o']
+            fake_process.register(ar_command)
+            commands.append(ar_command)
 
         config = BuildConfig('proj', stub_tool_box, fab_workspace=Path('/fab'))
         for target in targets:
-            config.artefact_store.update_dict(ArtefactSet.OBJECT_FILES, {f'{target}.o', 'util.o'}, target)
+            config.artefact_store.update_dict(
+                ArtefactSet.OBJECT_FILES,
+                {f'{target}.o', 'util.o'},
+                target
+            )
 
         with warns(UserWarning,
                    match="_metric_send_conn not set, cannot send metrics"):
             archive_objects(config=config)
-        assert [call for call in fake_process.calls] \
-               == [version_command, command1, command2]
+        assert call_list(fake_process) == commands
 
         # ensure the correct artefacts were created
         assert config.artefact_store[ArtefactSet.OBJECT_ARCHIVES] == {
             target: {str(config.build_output / f'{target}.a')}
-            for target in targets
-        }
+            for target in targets}
 
-    def test_for_library(self, stub_tool_box: ToolBox,
-                         fs: FakeFilesystem, fake_process: FakeProcess) -> None:
+    def test_for_library(self, stub_tool_box,
+                         fake_process: FakeProcess,
+                         fs: FakeFilesystem) -> None:
         """
-        Tests creating an object archiving or prior to a shared library.
+        As used when building an object archive or archiving before linking
+        a shared library.
         """
-        fake_process.register(['ar', '--version'])
-        command = ['ar', 'cr', '/fab/proj/build_output/mylib.a',
-                   'util1.o', 'util2.o']
-        record = fake_process.register(command)
+        help_command = ['ar', '--version']
+        fake_process.register(help_command, stdout='1.0.0')
+        ar_command = ['ar', 'cr', '/fab/proj/build_output/mylib.a',
+                      'util1.o', 'util2.o']
+        fake_process.register(ar_command)
 
-        config = BuildConfig('proj', stub_tool_box, fab_workspace=Path('/fab'))
-        config.artefact_store.update_dict(ArtefactSet.OBJECT_FILES, {'util1.o', 'util2.o'}, None)
+        config = BuildConfig('proj', stub_tool_box, fab_workspace=Path('/fab'),
+                             multiprocessing=False)
+        config.artefact_store.update_dict(
+            ArtefactSet.OBJECT_FILES, {'util1.o', 'util2.o'}, None
+        )
 
         with warns(UserWarning,
                    match="_metric_send_conn not set, cannot send metrics"):
             archive_objects(config=config,
                             output_fpath=config.build_output / 'mylib.a')
-        assert [call.args for call in record.calls] == [command]
+        assert call_list(fake_process) == [ar_command]
+
+        # ensure the correct artefacts were created
         assert config.artefact_store[ArtefactSet.OBJECT_ARCHIVES] == {
             None: {str(config.build_output / 'mylib.a')}}
 
-    def test_incorrect_tool(self, stub_tool_box: ToolBox) -> None:
+    def test_incorrect_tool(self, stub_tool_box):
         """
-        Tests wrong tool.
-
-        ToDo: Can this ever happen and monkeying with internal state.
+        Test that an incorrect archive tool is detected.
         """
         config = BuildConfig('proj', stub_tool_box)
-        cc = stub_tool_box.get_tool(Category.C_COMPILER,
-                                    config.mpi,
-                                    config.openmp)
+        cc = stub_tool_box.get_tool(Category.C_COMPILER, config.mpi, config.openmp)
         # And set its category to be AR
         cc._category = Category.AR
         # Now add this 'ar' tool to the tool box
@@ -91,6 +102,6 @@ class TestArchiveObjects:
         with raises(RuntimeError) as err:
             archive_objects(config=config,
                             output_fpath=config.build_output / 'mylib.a')
-        assert str(err.value) == \
-               "Unexpected tool 'some C compiler' of type '<class " \
-               "'fab.tools.compiler.CCompiler'>' instead of Ar"
+        assert str(err.value) == ("Unexpected tool 'some C compiler' of type "
+                                  "'<class 'fab.tools.compiler.CCompiler'>' "
+                                  "instead of Ar")
