@@ -4,7 +4,7 @@
 # which you should have received as part of this distribution
 ##############################################################################
 """
-Validates wrapped compile functionality. e.g. MPI.
+Tests the compiler wrapper implementation.
 """
 from pathlib import Path
 
@@ -14,41 +14,41 @@ from pytest_subprocess.fake_process import FakeProcess
 from tests.conftest import ExtendedRecorder, call_list, not_found_callback
 
 from fab.tools.category import Category
-from fab.tools.compiler import (CCompiler, FortranCompiler,
-                                Gcc, Gfortran, Icc, Ifort)
-from fab.tools.compiler_wrapper import (CompilerWrapper, CrayCcWrapper,
-                                        CrayFtnWrapper, Mpicc, Mpif90)
+from fab.tools.compiler import CCompiler, FortranCompiler
+from fab.tools.compiler_wrapper import (CompilerWrapper,
+                                        CrayCcWrapper, CrayFtnWrapper,
+                                        Mpicc, Mpif90)
 
 
-def test_compiler_wrapper_compiler_getter():
-    '''Tests that the compiler wrapper getter returns the
+def test_compiler_getter(stub_c_compiler: CCompiler,
+                         subproc_record: ExtendedRecorder) -> None:
+    """
+    Tests that the compiler wrapper getter returns the
     wrapper compiler instance.
-    '''
-    gcc = Gcc()
-    mpicc = Mpicc(gcc)
-    assert mpicc.compiler is gcc
+    """
+    mpicc = Mpicc(stub_c_compiler)
+    assert mpicc.compiler is stub_c_compiler
 
 
 def test_version_and_caching(stub_c_compiler: CCompiler,
                              fake_process: FakeProcess) -> None:
     """
-    Tests the compiler wrapper reports the right version number from the
-    actual compiler.
+    Tests that the compiler wrapper reports the right version number
+    from the actual compiler.
     """
-    compiler_version = ['scc', '--version']
-    fake_process.register(compiler_version, stdout='1.2.3')
-    wrapper_version = ['mpicc', '--version']
-    fake_process.register(wrapper_version, stdout='1.2.3')
-
+    fake_process.register(['scc', '--version'], stdout='1.2.3')
+    fake_process.register(['mpicc', '--version'], stdout='1.2.3')
     mpicc = Mpicc(stub_c_compiler)
 
+    # The wrapper should report the version of the wrapped compiler:
     assert mpicc.get_version() == (1, 2, 3)
 
     # Test that the value is cached:
     assert mpicc.get_version() == (1, 2, 3)
-
-    assert fake_process.call_count(compiler_version) == 1
-    assert fake_process.call_count(wrapper_version) == 1
+    assert call_list(fake_process) == [
+        ['scc', '--version'],
+        ['mpicc', '--version']
+    ]
 
 
 def test_version_consistency(stub_c_compiler: CCompiler,
@@ -57,67 +57,64 @@ def test_version_consistency(stub_c_compiler: CCompiler,
     Tests that the compiler wrapper and compiler must report the
     same version number:
     """
-    compiler_version = ['scc', '--version']
-    fake_process.register(compiler_version, stdout='1.2.3')
-    wrapper_version = ['mpicc', '--version']
-    fake_process.register(wrapper_version, stdout='4.5.6')
+    # The wrapper must verify that the wrapper compiler and wrapper
+    # report the same version number, otherwise raise an exception.
+    # The first patch changes the return value which the compiler wrapper
+    # will report (since it calls Compiler.get_version), the second
+    # changes the return value of the wrapper compiler instance only:
+    fake_process.register(['scc', '--version'], stdout='1.2.3')
+    fake_process.register(['mpicc', '--version'], stdout='4.5.6')
 
     mpicc = Mpicc(stub_c_compiler)
     with raises(RuntimeError) as err:
         mpicc.get_version()
-    assert str(err.value) \
-        == "Different version for compiler " \
-           "'CCompiler - some C compiler: scc' (1.2.3) " \
-           "and compiler wrapper 'Mpicc(some C compiler)' (4.5.6)."
+    assert str(err.value) == ("Different version for compiler "
+                              "'CCompiler - some C compiler: scc' (1.2.3) and "
+                              "compiler wrapper 'Mpicc - mpicc-some C "
+                              "compiler: mpicc' (4.5.6).")
 
 
-def test_version_compiler_unavailable(fake_process: FakeProcess) -> None:
+def test_version_compiler_unavailable(stub_c_compiler: CCompiler,
+                                      fake_process: FakeProcess) -> None:
     """
-    Tests missing wrapped compiler.
-    The wrapper should report an empty result.
+    Tests availability check when wrapped compiler is missing.
     """
-    compiler_version = ['scc', '--version']
-    fake_process.register(compiler_version, callback=not_found_callback)
-
-    compiler = CCompiler("Some C compiler", 'scc', 'some', r'([\d.]+)')
-    mpicc = Mpicc(compiler)
-
+    fake_process.register(['scc', '--version'], callback=not_found_callback)
+    fake_process.register(['mpicc', '--version'], stdout='1.2.3')
+    mpicc = Mpicc(stub_c_compiler)
     with raises(RuntimeError) as err:
-        mpicc.get_version()
-    assert str(err.value).startswith("Cannot get version of wrapped compiler")
-    assert fake_process.call_count(compiler_version) == 1
+        assert mpicc.get_version() == ""
+    assert str(err.value) == ("Cannot get version of wrapped compiler "
+                              "'CCompiler - some C compiler: scc")
 
 
 def test_compiler_is_available_ok(stub_c_compiler: CCompiler,
                                   fake_process: FakeProcess) -> None:
     """
-    Tests availability check in success conditions.
-
-    ToDo: Messing with "private" state.
+    Tests availability check when everything is okay.
     """
-    compiler_command = ['scc', '--version']
-    fake_process.register(compiler_command, stdout='1.2.3')
-    wrapper_command = ['mpicc', '--version']
-    fake_process.register(wrapper_command, stdout='1.2.3')
+    fake_process.register(['scc', '--version'], stdout='1.2.3')
+    fake_process.register(['mpicc', '--version'], stdout='1.2.3')
     mpicc = Mpicc(stub_c_compiler)
 
     # Just make sure we get the right object:
     assert isinstance(mpicc, CompilerWrapper)
-    assert mpicc.is_available
-
-    # Test that the value is indeed cached:
-    assert mpicc._is_available
-    # Due to caching there should only be one call to check_avail
-    assert fake_process.call_count(compiler_command) == 1
-    assert fake_process.call_count(wrapper_command) == 1
+    assert mpicc.is_available is True
 
 
-def test_compiler_is_available_no_version(fake_process: FakeProcess) -> None:
+def test_compiler_is_available_no_version(stub_c_compiler: CCompiler,
+                                          fake_process: FakeProcess) -> None:
     """
-    Tests invalid version makes compielr unavailable.
+    Make sure a compiler that does not return a valid version
+    is marked as not available.
     """
-    fake_process.register(['scc', '--version'], stdout='bad version number')
-    mpicc = Mpicc(CCompiler("Some C compiler", 'scc', 'some', r'([\d.]+)'))
+    fake_process.register(['scc', '--version'], callback=not_found_callback)
+    mpicc = Mpicc(stub_c_compiler)
+    # Now test if get_version raises an error
+    assert not mpicc.is_available
+
+    fake_process.register(['scc', '--version'], stdout='1.2.3')
+    fake_process.register(['mpicc', '--version'], callback=not_found_callback)
     assert not mpicc.is_available
 
 
@@ -125,330 +122,268 @@ def test_compiler_hash(fake_process: FakeProcess) -> None:
     """
     Test the hash functionality.
     """
-    fake_process.register(['scc', '--version'], stdout='567.0')
-    mpicc1 = CCompiler("Some C compiler", 'scc', 'some', r'([\d.]+)')
-
+    fake_process.register(['tcc', '--version'], stdout='5.6.7')
+    fake_process.register(['mpicc', '--version'], stdout='5.6.7')
+    cc1 = CCompiler('test C compiler', 'tcc', 'test',
+                    version_regex=r'([\d.]+)')
+    mpicc1 = Mpicc(cc1)
     hash1 = mpicc1.get_hash()
-    assert hash1 == 5574914495
+    assert hash1 == 5730248176
 
     # A change in the version number must change the hash:
-    fake_process.register(['scc', '--version'], stdout='89.0')
-    mpicc2 = CCompiler("Some C compiler", 'scc', 'some', r'([\d.]+)')
+    fake_process.register(['tcc', '--version'], stdout='8.9')
+    fake_process.register(['mpicc', '--version'], stdout='8.9')
+    cc2 = CCompiler('test C compiler', 'tcc', 'test',
+                    version_regex=r'([\d.]+)')
+    mpicc2 = Mpicc(cc2)
     hash2 = mpicc2.get_hash()
     assert hash2 != hash1
 
     # A change in the name with the original version number
     # 567) must change the hash again:
-    fake_process.register(['scc', '--version'], stdout='567.0')
-    mpicc3 = CCompiler("Some other C compiler", 'scc', 'some', r'([\d.]+)')
+    fake_process.register(['tcc', '--version'], stdout='5.6.7')
+    fake_process.register(['mpicc', '--version'], stdout='5.6.7')
+    cc3 = CCompiler('New test C compiler', 'tcc', 'test',
+                    version_regex=r'([\d.]+)')
+    mpicc3 = Mpicc(cc3)
     hash3 = mpicc3.get_hash()
     assert hash3 not in (hash1, hash2)
 
     # A change in the name with the modified version number
     # must change the hash again:
-    fake_process.register(['scc', '--version'], stdout='89.0')
-    mpicc4 = CCompiler("Some other C compiler", 'scc', 'some', r'([\d.]+)')
+    fake_process.register(['tcc', '--version'], stdout='8.9')
+    fake_process.register(['mpicc', '--version'], stdout='8.9')
+    cc4 = CCompiler('New test C compiler', 'tcc', 'test',
+                    version_regex=r'([\d.]+)')
+    mpicc4 = Mpicc(cc4)
     hash4 = mpicc4.get_hash()
     assert hash4 not in (hash1, hash2, hash3)
 
 
-def test_fortran_syntax_only() -> None:
+def test_syntax_only(stub_c_compiler: CCompiler,
+                     subproc_record: ExtendedRecorder) -> None:
     """
-    Tests handling of syntax only flags in wrapper.
+    Tests handling of syntax only flags in wrapper. In case of testing
+    syntax only for a C compiler an exception must be raised.
     """
-    compiler = FortranCompiler('Some Fortran compiler', 'sfc', 'some', r'([\d.]+)',
-                               syntax_only_flag='-sax')
-    mpif90 = Mpif90(compiler)
+    fc = FortranCompiler('test Fortran', 'tfc', 'test', r'[\d.]+',
+                         syntax_only_flag='-syntax')
+    mpif90 = Mpif90(fc)
+
     assert mpif90.has_syntax_only
 
-
-def test_c_syntax_only(stub_c_compiler: CCompiler) -> None:
-    """
-    Tests attempt to use "syntax only" on C compiler is rejected.
-    """
     mpicc = Mpicc(stub_c_compiler)
     with raises(RuntimeError) as err:
         _ = mpicc.has_syntax_only
     assert str(err.value) == "Compiler 'some C compiler' has no has_syntax_only."
 
 
-def test_fortran_module_output(stub_fortran_compiler: FortranCompiler) -> None:
+def test_module_output(stub_fortran_compiler: FortranCompiler,
+                       stub_c_compiler: CCompiler,
+                       subproc_record: ExtendedRecorder) -> None:
     """
-    Tests handling of module output_flags in a wrapper.
+    Tests handling of module output_flags in a wrapper. In case of testing
+    this with a C compiler, an exception must be raised.
+
+    Todo: Monkeying with internal state.
     """
     mpif90 = Mpif90(stub_fortran_compiler)
     mpif90.set_module_output_path(Path("/somewhere"))
-    assert mpif90.compiler._module_output_path == "/somewhere"  # type: ignore[attr-defined]
 
+    assert stub_fortran_compiler._module_output_path == "/somewhere"
 
-def test_c_module_output(stub_c_compiler: CCompiler) -> None:
-    """
-    Tests Wrapped C compiler rejects Fortran module arguments.
-    """
     mpicc = Mpicc(stub_c_compiler)
     with raises(RuntimeError) as err:
         mpicc.set_module_output_path(Path("/tmp"))
-    assert str(err.value) == "Compiler 'some C compiler' " \
-                             "has no 'set_module_output_path' function."
+    assert str(err.value) == ("Compiler 'some C compiler' has "
+                              "no 'set_module_output_path' function.")
 
 
-def test_module_output_c():
+def test_fortran_with_add_args(stub_fortran_compiler: FortranCompiler,
+                               subproc_record: ExtendedRecorder) -> None:
     """
-    Tests handling of module destination argument. This only applies to
-    Fortran compilers.
+    Tests that additional arguments are handled as expected in
+    a wrapper.
     """
-    compiler = CCompiler('some compiler', Path('compiler'), 'some',
-                         r'([\d.]+)')
-    wrapper = CompilerWrapper('some wrapper', 'swrap', compiler)
+    mpif90 = Mpif90(stub_fortran_compiler)
+    mpif90.set_module_output_path(Path('/module_out'))
 
-    with raises(RuntimeError) as err:
-        wrapper.set_module_output_path("/tmp")
-    assert str(err.value).startswith(
-        "Compiler 'some compiler' has no 'set_module_output_path' function"
-    )
-
-
-def test_fortran_with_add_args(fake_process: FakeProcess) -> None:
-    """
-    Tests management of Fortran compiler arguments by wrapper.
-    """
-    command = ['wrapf', '-c', "-O3", '-sox', '-J', '/module_out',
-               'a.f90', '-o', 'a.o']
-    fake_process.register(command)
-
-    compiler = FortranCompiler('some fortran', 'sfort', 'some',
-                               r'([\d.]+)', module_folder_flag='-J',
-                               syntax_only_flag='-sox')
-    wrapper = CompilerWrapper('some fortran wrapper', 'wrapf', compiler)
-    wrapper.set_module_output_path(Path("/module_out"))
     with warns(UserWarning, match="Removing managed flag"):
-        wrapper.compile_file(Path("a.f90"), Path("a.o"),
-                             add_flags=["-J/b", "-O3"], openmp=False,
-                             syntax_only=True)
-    # Notice that "-J/b" has been removed
+        mpif90.compile_file(Path("a.f90"), Path('a.o'),
+                            add_flags=["-mods", "/b", "-O3"],
+                            openmp=False)
+    # Notice that "-mods /b" has been removed
+    assert subproc_record.invocations() == [
+        ['mpif90', '-c', "-O3", '-mods', '/module_out', 'a.f90', '-o', 'a.o']
+    ]
+    assert subproc_record.extras()[0]['cwd'] == '.'
 
 
-def test_fortran_with_add_args_openmp(fake_process: FakeProcess) -> None:
+def test_fortran_unnecessary_openmp(stub_fortran_compiler: FortranCompiler,
+                                    subproc_record: ExtendedRecorder) -> None:
     """
-    Tests Fortran compiler refuses Fortran compiler arguments and flags
-    duplicate OpenMP argument.
+    Tests that additional arguments are handled as expected in
+    a wrapper if also the openmp flags are specified.
     """
-    command = ['wrapf', '-c', '-omp', '-omp', '-O3', '-sox',
-               '-mod', '/module_out', 'a.f90', '-o', 'a.o']
-    fake_process.register(command)
-    compiler = FortranCompiler('some fortran', 'sfort', 'some',
-                               r'([\d.]+)', openmp_flag='-omp',
-                               syntax_only_flag='-sox', module_folder_flag='-mod')
-    wrapper = CompilerWrapper('some fortran wrapper', 'wrapf', compiler)
-    wrapper.set_module_output_path(Path("/module_out"))
+    mpif90 = Mpif90(stub_fortran_compiler)
+    mpif90.set_module_output_path(Path('/module_out'))
+
     with warns(UserWarning,
                match="explicitly provided. OpenMP should be "
                      "enabled in the BuildConfiguration"):
-        wrapper.compile_file(Path("a.f90"), Path("a.o"),
-                             add_flags=["-omp", "-O3"],
-                             openmp=True, syntax_only=True)
+        mpif90.compile_file(Path("a.f90"), Path('a.o'),
+                            add_flags=["-omp", "-O3"],
+                            openmp=True)
+    assert subproc_record.invocations() == [
+        ['mpif90', '-c', '-omp', '-omp', '-O3', '-mods', '/module_out',
+         'a.f90', '-o', 'a.o']
+    ]
+    assert subproc_record.extras()[0]['cwd'] == '.'
 
-    assert call_list(fake_process) == [command]
 
-
-def test_c_with_add_args(subproc_record: ExtendedRecorder) -> None:
+def test_c_with_add_args(stub_c_compiler: CCompiler,
+                         subproc_record: ExtendedRecorder) -> None:
     """
-    Tests additional arguments are handled as expected by a compiler wrapper.
-    Also verify that requesting Fortran-specific options like syntax-only with
-    the C compiler raises a runtime error.
+    Tests that additional arguments are handled as expected in a
+    compiler wrapper. Also verify that requesting Fortran-specific options
+    like syntax-only with the C compiler raises a runtime error.
     """
-    compiler = CCompiler('some c', 'sc', 'some', r'([\d.]+)',
-                         openmp_flag='-omp')
-    wrapper = CompilerWrapper('some c wrapper', 'wrapc', compiler)
+    mpicc = Mpicc(stub_c_compiler)
 
-    wrapper.compile_file(Path("a.f90"), Path("a.o"), openmp=False,
-                         add_flags=["-O3"])
+    # Normal invoke of the C compiler, make sure add_flags are
+    # passed through:
+    mpicc.compile_file(Path("a.f90"), Path('a.o'), openmp=False,
+                       add_flags=["-O3"])
 
     # Invoke C compiler with syntax-only flag (which is only supported
     # by Fortran compilers), which should raise an exception.
     with raises(RuntimeError) as err:
-        wrapper.compile_file(Path("a.f90"), Path("a.o"), openmp=False,
-                             add_flags=["-O3"], syntax_only=True)
-    assert str(err.value).startswith(
-        "Syntax-only cannot be used with compiler 'some c wrapper'.")
+        mpicc.compile_file(Path("a.f90"), Path('a.o'), openmp=False,
+                           add_flags=["-O3"], syntax_only=True)
+    assert str(err.value) == "Syntax-only cannot be used with compiler 'mpicc-some C compiler'."
 
     # Check that providing the openmp flag in add_flag raises a warning:
     with warns(UserWarning,
                match="explicitly provided. OpenMP should be "
                      "enabled in the BuildConfiguration"):
-        wrapper.compile_file(Path("a.f90"), Path("a.o"),
-                             add_flags=["-omp", "-O3"],
-                             openmp=True)
+        mpicc.compile_file(Path("a.f90"), Path('a.o'),
+                           add_flags=["-omp", "-O3"],
+                           openmp=True)
+
+        assert subproc_record.invocations() == [
+            ['mpicc', '-c', "-O3", 'a.f90', '-o', 'a.o'],
+            ['mpicc', '-c', '-omp', '-omp', '-O3', 'a.f90', '-o', 'a.o']
+        ]
+        assert subproc_record.extras()[0]['cwd'] == '.'
+        assert subproc_record.extras()[1]['cwd'] == '.'
 
 
-def test_arguments_independent(fake_process: FakeProcess) -> None:
+def test_flags_independent(stub_c_compiler: CCompiler,
+                           subproc_record: ExtendedRecorder) -> None:
     """
-    Tests arguments set in the base compiler and the wrapper are independent
-    of each other.
+    Tests that flags set in the base compiler will be accessed in the
+    wrapper, but not the other way round.
     """
-    compiler = CCompiler('Some C compiler', 'scc', 'some', r'([\d.]+)',
-                         openmp_flag='-omp')
-    mpicc = Mpicc(compiler)
-    assert compiler.flags == []
-    assert mpicc.flags == []
-    compiler.add_flags(["-a", "-b"])
-    assert compiler.flags == ["-a", "-b"]
-    assert mpicc.flags == []
-    assert mpicc.openmp_flag == compiler.openmp_flag
+    wrapper = Mpicc(stub_c_compiler)
 
-    # Test  a compiler wrapper correctly queries the wrapper compiler for
-    # openmp flag: Set the wrapper to have no _openmp_flag (which is
-    # actually the default, since the wrapper never sets its own flag), but
-    # gcc does have a flag, so mpicc should report that is supports openmp.
-    # mpicc.openmp calls openmp of its base class (Compiler), which queries
-    # if an openmp flag is defined. This query must go to the openmp property,
-    # since the wrapper overwrites this property to return the wrapped
-    # compiler's flag (and not the wrapper's flag, which would not be defined)
-    #
-    # ToDo: Monkeying with "private" state.
-    #
-    mpicc._openmp_flag = ""
-    assert mpicc._openmp_flag == ""
-    assert mpicc.openmp
+    assert stub_c_compiler.flags == []
+    assert wrapper.flags == []
+
+    stub_c_compiler.add_flags(["-a", "-b"])
+    assert stub_c_compiler.flags == ["-a", "-b"]
+    assert wrapper.flags == []
+    assert wrapper.openmp_flag == stub_c_compiler.openmp_flag
 
     # Adding flags to the wrapper should not affect the wrapped compiler:
-    mpicc.add_flags(["-d", "-e"])
-    assert compiler.flags == ["-a", "-b"]
-    # And the compiler wrapper should reports the wrapped compiler's flag
-    # followed by the wrapper flag (i.e. the wrapper flag can therefore
-    # overwrite the wrapped compiler's flags)
-    assert mpicc.flags == ["-d", "-e"]
+    wrapper.add_flags(["-d", "-e"])
+    assert stub_c_compiler.flags == ["-a", "-b"]
+    # And the compiler wrapper should report only its own flags.
+    assert wrapper.flags == ["-d", "-e"]
 
 
-def test_c_args_with_add_arg(stub_c_compiler: CCompiler,
-                             fake_process: FakeProcess,
-                             monkeypatch) -> None:
+def test_args_with_add_arg(stub_c_compiler: CCompiler,
+                           subproc_record: ExtendedRecorder) -> None:
     """
-    Tests arguments set against the base compiler manifest in the wrapper
-    even when additional arguments are specified.
+    Tests that flags set in the base compiler will be accessed in the
+    wrapper if also additional flags are specified.
     """
-    command = ['mpicc', '-a', '-b', '-c', '-d', '-e', '-f',
-               'a.f90', '-o', 'a.o']
-    fake_process.register(command)
-
-    monkeypatch.delenv('CFLAGS', raising=False)
-    mpicc = Mpicc(stub_c_compiler)
+    wrapper = CompilerWrapper('warpper', 'wrp', stub_c_compiler)
     stub_c_compiler.add_flags(["-a", "-b"])
-    mpicc.add_flags(["-d", "-e"])
+    wrapper.add_flags(["-d", "-e"])
 
-    # Check that the flags are assembled in the right order in the
-    # actual compiler call: first the wrapper compiler flag, then
-    # the wrapper flag, then additional flags
-    mpicc.compile_file(Path("a.f90"), Path("a.o"), add_flags=["-f"],
-                       openmp=False)
-    assert call_list(fake_process) == [command]
+    wrapper.compile_file(Path("a.f90"), Path('a.o'), add_flags=["-f"],
+                         openmp=True)
+    assert subproc_record.invocations() == [
+        ['wrp', "-a", "-b", "-c", "-omp", "-d", "-e", "-f",
+         "a.f90", "-o", 'a.o']
+    ]
+    assert subproc_record.extras()[0]['cwd'] == '.'
 
 
-def test_arguments_without_add_arg(stub_c_compiler: CCompiler,
-                                   fake_process: FakeProcess,
-                                   monkeypatch) -> None:
+def test_args_without_add_arg(stub_c_compiler: CCompiler,
+                              subproc_record: ExtendedRecorder) -> None:
     """
-    Tests arguments set against the base compiler will be set for the wrapper
-    when no additional flags are specified.
+    Tests that flags set in the base compiler will be accessed in the
+    wrapper if no additional flags are specified.
     """
-    command = ['mpicc', '-a', '-b', '-c', '-d', '-e', 'a.f90', '-o', 'a.o']
-    fake_process.register(command)
+    wrapper = CompilerWrapper('wrapper', 'wrp', compiler=stub_c_compiler)
 
-    monkeypatch.delenv('CFLAGS', raising=False)
-    mpicc = Mpicc(stub_c_compiler)
     stub_c_compiler.add_flags(["-a", "-b"])
-    mpicc.add_flags(["-d", "-e"])
-    # Check that the flags are assembled in the right order in the
-    # actual compiler call: first the wrapper compiler flag, then
-    # the wrapper flag, then additional flags
-    # Test if no add_flags are specified:
-    mpicc.compile_file(Path("a.f90"), Path("a.o"), openmp=False)
-    assert call_list(fake_process) == [command]
+    wrapper.add_flags(["-d", "-e"])
+
+    wrapper.compile_file(Path("a.f90"), Path('a.o'), openmp=True)
+    assert subproc_record.invocations() == [['wrp', "-a", "-b", "-c", "-omp",
+                                             "-d", "-e", "a.f90", "-o", 'a.o']]
+    assert subproc_record.extras()[0]['cwd'] == '.'
 
 
-def test_compiler_wrapper_mpi_gcc():
-    '''Tests the MPI enables gcc class.'''
-    mpi_gcc = Mpicc(Gcc())
-    assert mpi_gcc.name == "mpicc-gcc"
-    assert str(mpi_gcc) == "Mpicc(gcc)"
-    assert isinstance(mpi_gcc, CompilerWrapper)
-    assert mpi_gcc.category == Category.C_COMPILER
-    assert mpi_gcc.mpi
-    assert mpi_gcc.suite == "gnu"
-
-
-def test_compiler_wrapper_mpi_gfortran():
-    '''Tests the MPI enabled gfortran class.'''
-    mpi_gfortran = Mpif90(Gfortran())
-    assert mpi_gfortran.name == "mpif90-gfortran"
-    assert str(mpi_gfortran) == "Mpif90(gfortran)"
-    assert isinstance(mpi_gfortran, CompilerWrapper)
-    assert mpi_gfortran.category == Category.FORTRAN_COMPILER
-    assert mpi_gfortran.mpi
-    assert mpi_gfortran.suite == "gnu"
-
-
-def test_compiler_wrapper_mpi_icc():
-    '''Tests the MPI enabled icc class.'''
-    mpi_icc = Mpicc(Icc())
-    assert mpi_icc.name == "mpicc-icc"
-    assert str(mpi_icc) == "Mpicc(icc)"
+def test_mpi_c(stub_c_compiler: CCompiler) -> None:
+    """
+    Tests the MPI enabled icc class.
+    """
+    mpi_icc = Mpicc(stub_c_compiler)
+    assert mpi_icc.name == "mpicc-some C compiler"
+    assert str(mpi_icc) == "Mpicc - mpicc-some C compiler: mpicc"
     assert isinstance(mpi_icc, CompilerWrapper)
     assert mpi_icc.category == Category.C_COMPILER
     assert mpi_icc.mpi
-    assert mpi_icc.suite == "intel-classic"
+    assert mpi_icc.suite == "stub"
 
 
-def test_compiler_wrapper_mpi_ifort():
-    '''Tests the MPI enabled ifort class.'''
-    mpi_ifort = Mpif90(Ifort())
-    assert mpi_ifort.name == "mpif90-ifort"
-    assert str(mpi_ifort) == "Mpif90(ifort)"
+def test_mpi_fortran(stub_fortran_compiler: FortranCompiler) -> None:
+    """
+    Tests the MPI enabled ifort class.
+    """
+    mpi_ifort = Mpif90(stub_fortran_compiler)
+    assert mpi_ifort.name == "mpif90-some Fortran compiler"
+    assert str(mpi_ifort) == "Mpif90 - mpif90-some Fortran compiler: mpif90"
     assert isinstance(mpi_ifort, CompilerWrapper)
     assert mpi_ifort.category == Category.FORTRAN_COMPILER
     assert mpi_ifort.mpi
-    assert mpi_ifort.suite == "intel-classic"
+    assert mpi_ifort.suite == "stub"
 
 
-def test_compiler_wrapper_cray_icc():
-    '''Tests the Cray wrapper for icc.'''
-    craycc = CrayCcWrapper(Icc())
-    assert craycc.name == "craycc-icc"
-    assert str(craycc) == "CrayCcWrapper(icc)"
+def test_cray_c(stub_c_compiler: CCompiler) -> None:
+    """
+    Tests the Cray wrapper for gcc.
+    """
+    craycc = CrayCcWrapper(stub_c_compiler)
+    assert craycc.name == "craycc-some C compiler"
+    assert str(craycc) == "CrayCcWrapper - craycc-some C compiler: cc"
     assert isinstance(craycc, CompilerWrapper)
     assert craycc.category == Category.C_COMPILER
     assert craycc.mpi
-    assert craycc.suite == "intel-classic"
+    assert craycc.suite == "stub"
 
 
-def test_compiler_wrapper_cray_ifort():
-    '''Tests the Cray wrapper for ifort.'''
-    crayftn = CrayFtnWrapper(Ifort())
-    assert crayftn.name == "crayftn-ifort"
-    assert str(crayftn) == "CrayFtnWrapper(ifort)"
+def test_cray_fortran(stub_fortran_compiler: FortranCompiler) -> None:
+    """
+    Tests the Cray wrapper for gfortran.
+    """
+    crayftn = CrayFtnWrapper(stub_fortran_compiler)
+    assert crayftn.name == "crayftn-some Fortran compiler"
+    assert str(crayftn) == "CrayFtnWrapper - crayftn-some Fortran compiler: ftn"
     assert isinstance(crayftn, CompilerWrapper)
     assert crayftn.category == Category.FORTRAN_COMPILER
     assert crayftn.mpi
-    assert crayftn.suite == "intel-classic"
-
-
-def test_compiler_wrapper_cray_gcc():
-    '''Tests the Cray wrapper for gcc.'''
-    craycc = CrayCcWrapper(Gcc())
-    assert craycc.name == "craycc-gcc"
-    assert str(craycc) == "CrayCcWrapper(gcc)"
-    assert isinstance(craycc, CompilerWrapper)
-    assert craycc.category == Category.C_COMPILER
-    assert craycc.mpi
-    assert craycc.suite == "gnu"
-
-
-def test_compiler_wrapper_cray_gfortran():
-    '''Tests the Cray wrapper for gfortran.'''
-    crayftn = CrayFtnWrapper(Gfortran())
-    assert crayftn.name == "crayftn-gfortran"
-    assert str(crayftn) == "CrayFtnWrapper(gfortran)"
-    assert isinstance(crayftn, CompilerWrapper)
-    assert crayftn.category == Category.FORTRAN_COMPILER
-    assert crayftn.mpi
-    assert crayftn.suite == "gnu"
+    assert crayftn.suite == "stub"

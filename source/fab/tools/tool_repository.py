@@ -72,10 +72,12 @@ class ToolRepository(dict):
                     Ar, Fcm, Git, Psyclone, Rsync, Subversion]:
             self.add_tool(cls())
 
-        # Add the common shells. While Fab itself does not need this,
-        # it is a very convenient tool for user configuration (e.g. to
-        # query nc-config etc)
-        for shell_name in ["sh", "bash", "ksh", "dash", 'zsh']:
+        # Add a standard shell. Additional shells (bash, ksh, dash)
+        # can be created by just adding their names to the list. While Fab
+        # itself does not need this, it is a very convenient tool for user
+        # configurations (e.g. to query `nf-config` etc), since we don't
+        # allow a shell to be used in Python's subprocess.
+        for shell_name in ["sh"]:
             self.add_tool(Shell(shell_name))
 
         # Now create the potential mpif90 and Cray ftn wrapper
@@ -150,21 +152,22 @@ class ToolRepository(dict):
         '''
 
         if category not in self:
-            raise KeyError(f"Unknown category '{category}' in"
-                           f" {__name__}.get_tool().")
+            raise KeyError(f"Unknown category '{category}' "
+                           f"in ToolRepository.get_tool().")
         all_tools = self[category]
         for tool in all_tools:
             if tool.name == name:
                 return tool
         raise KeyError(f"Unknown tool '{name}' in category '{category}' "
-                       f"in {__name__}.")
+                       f"in ToolRepository.")
 
     def set_default_compiler_suite(self, suite: str):
-        '''Sets the default for linker and compilers to be of the
+        """
+        Sets the default for linker and compilers to be of the
         given compiler suite.
 
         :param suite: the name of the compiler suite to make the default.
-        '''
+        """
         for category in [Category.FORTRAN_COMPILER, Category.C_COMPILER,
                          Category.LINKER]:
             # Now sort the tools in this category to have all tools with the
@@ -208,9 +211,9 @@ class ToolRepository(dict):
             for tool in self[category]:
                 if tool.is_available:
                     return tool
-            tool_names = ", ".join(i.name for i in self[category])
+            tool_names = ",".join(i.name for i in self[category])
             raise RuntimeError(f"Can't find available '{category}' tool. "
-                               f"Tools are {tool_names}.")
+                               f"Tools are '{tool_names}'.")
 
         if not isinstance(mpi, bool):
             raise RuntimeError(f"Invalid or missing mpi specification "
