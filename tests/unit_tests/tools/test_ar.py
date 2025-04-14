@@ -23,7 +23,7 @@ def test_constructor() -> None:
     assert ar.category == Category.AR
     assert ar.name == "ar"
     assert ar.exec_name == "ar"
-    assert ar.flags == []
+    assert ar.get_flags() == []
 
 
 def test_check_available(subproc_record: ExtendedRecorder) -> None:

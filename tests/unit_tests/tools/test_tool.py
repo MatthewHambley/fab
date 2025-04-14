@@ -15,6 +15,7 @@ from pytest_subprocess.fake_process import FakeProcess
 from tests.conftest import ExtendedRecorder, call_list, not_found_callback
 
 from fab.tools.category import Category
+from fab.tools.flags import ProfileFlags
 from fab.tools.tool import Tool
 
 
@@ -101,11 +102,35 @@ def test_arguments():
     Tests tool arguments.
     """
     tool = Tool("some tool", "stool", Category.MISC)
-    assert tool.flags == []
+    assert tool.get_flags() == []
     tool.add_flags("-a")
-    assert tool.flags == ["-a"]
+    assert tool.get_flags() == ["-a"]
     tool.add_flags(["-b", "-c"])
-    assert tool.flags == ["-a", "-b", "-c"]
+    assert tool.get_flags() == ["-a", "-b", "-c"]
+
+
+def test_tool_profiles():
+    '''Test that profiles work as expected. These tests use internal
+    implementation details of ProfileFlags, but we need to test that the
+    exposed flag-related API works as expected
+
+    '''
+    tool = Tool("gfortran", "gfortran", Category.FORTRAN_COMPILER)
+    # Make sure by default we get ProfileFlags
+    assert isinstance(tool._flags, ProfileFlags)
+    assert tool.get_flags() == []
+
+    # Define a profile with no inheritance
+    tool.define_profile("mode1")
+    assert tool.get_flags("mode1") == []
+    tool.add_flags("-flag1", "mode1")
+    assert tool.get_flags("mode1") == ["-flag1"]
+
+    # Define a profile with inheritance
+    tool.define_profile("mode2", "mode1")
+    assert tool.get_flags("mode2") == ["-flag1"]
+    tool.add_flags("-flag2", "mode2")
+    assert tool.get_flags("mode2") == ["-flag1", "-flag2"]
 
 
 class TestToolRun:

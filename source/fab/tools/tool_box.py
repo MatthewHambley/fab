@@ -12,7 +12,6 @@ from typing import Dict, Optional
 
 from fab.tools.category import Category
 from fab.tools.tool import Tool
-from fab.tools.tool_repository import ToolRepository
 
 
 class ToolBox:
@@ -73,6 +72,10 @@ class ToolBox:
         # No tool was specified for this category, get the default tool
         # from the ToolRepository, and add it, so we don't need to look
         # it up again later.
+
+        # Avoid cyclic import:
+        # pylint: disable=import-outside-toplevel
+        from fab.tools.tool_repository import ToolRepository
         tr = ToolRepository()
         tool = tr.get_default(category, mpi=mpi, openmp=openmp)
         self._all_tools[category] = tool

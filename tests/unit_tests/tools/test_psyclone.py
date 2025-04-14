@@ -30,7 +30,7 @@ def test_constructor():
     assert psyclone.category == Category.PSYCLONE
     assert psyclone.name == "psyclone"
     assert psyclone.exec_name == "psyclone"
-    assert psyclone.flags == []
+    assert psyclone.get_flags() == []
 
 
 @mark.parametrize("version", ["2.4.0", "2.5.0", "3.0.0", "3.1.0"])

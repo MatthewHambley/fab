@@ -6,22 +6,21 @@
 """
 Tests linking a shared library.
 """
-from pathlib import Path
-from types import SimpleNamespace
-
 from pytest import warns
 from pytest_subprocess.fake_process import FakeProcess
 
 from tests.conftest import call_list
 
-from fab.artefacts import ArtefactSet, ArtefactStore
+from fab.artefacts import ArtefactSet
+from fab.build_config import BuildConfig
 from fab.steps.link import link_shared_object
 from fab.tools.compiler import FortranCompiler
 from fab.tools.linker import Linker
-from fab.tools.tool_box import ToolBox
 
 
-def test_run(fake_process: FakeProcess, monkeypatch) -> None:
+def test_run(stub_configuration: BuildConfig,
+             stub_fortran_compiler: FortranCompiler,
+             fake_process: FakeProcess, monkeypatch) -> None:
     """
     Tests the construction of the command.
     """
@@ -34,27 +33,15 @@ def test_run(fake_process: FakeProcess, monkeypatch) -> None:
                     '-o', '/tmp/lib_my.so']
     fake_process.register(link_command, stdout='abc\ndef')
 
-    compiler = FortranCompiler("some Fortran compiler", 'sfc', 'some',
-                               r'([\d.]+)')
-    linker = Linker(compiler=compiler)
+    stub_configuration.artefact_store[ArtefactSet.OBJECT_FILES] = {
+        None: {'foo.o', 'bar.o'}
+    }
 
-    tool_box = ToolBox()
-    config = SimpleNamespace(
-        project_workspace=Path('workspace'),
-        build_output=Path("workspace"),
-        artefact_store=ArtefactStore(),
-        openmp=False,
-        tool_box=tool_box
-    )
-    tool_box.add_tool(linker)
-
-    config.artefact_store[ArtefactSet.OBJECT_FILES] = \
-        {None: {'foo.o', 'bar.o'}}
+    linker = Linker(compiler=stub_fortran_compiler)
+    stub_configuration.tool_box.add_tool(linker)
 
     with warns(UserWarning, match="_metric_send_conn not set, "
                                   "cannot send metrics"):
-        link_shared_object(config, "/tmp/lib_my.so",
+        link_shared_object(stub_configuration, "/tmp/lib_my.so",
                            flags=['-fooflag', '-barflag'])
-    assert call_list(fake_process) == [
-        version_command, link_command
-    ]
+    assert call_list(fake_process) == [link_command]

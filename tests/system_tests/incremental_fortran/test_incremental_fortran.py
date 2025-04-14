@@ -22,7 +22,7 @@ from fab.util import file_walk, get_prebuild_file_groups
 PROJECT_LABEL = 'tiny_project'
 
 
-class TestIncremental():
+class TestIncremental:
     """
     Checks:
         - basic Fortran project build
@@ -280,10 +280,11 @@ class TestCleanupPrebuilds():
             ('a.345.foo', datetime(2022, 10, 11)),
             ('a.456.foo', datetime(2022, 10, 1)),
         ]
-        for a, t in artefacts:
-            path = config.prebuild_folder / a
+        for filename, create_datetime in artefacts:
+            path = config.prebuild_folder / filename
             path.touch(exist_ok=False)
-            os.utime(path, (t.timestamp(), t.timestamp()))
+            os.utime(path, (create_datetime.timestamp(),
+                            create_datetime.timestamp()))
 
         cleanup_prebuilds(config, **kwargs)
 

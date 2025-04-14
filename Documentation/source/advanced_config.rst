@@ -176,6 +176,137 @@ notification, as it needs to use this flag to control the output location.
 
 .. _Advanced Flags:
 
+Compilation Profiles
+====================
+Fab supports compilation profiles. A compilation profile is essentially a simple
+string that represents a set of compilation and linking flags to be used.
+For example, an application might have profiles for `full-debug`, `fast-debug`,
+and `production`. Compilation profiles can inherit settings, for example
+`fast-debug` might inherit from `full-debug`, but add optimisations.
+
+Any flag for any tool can make use of a profile, but in many cases this is
+not necessary (think of options for `rsync`, `git`, `svn`, ...). Fab will
+internally create a dummy profile, indicated by an empty string `""`. If no
+profile is specified, this default profile will be used.
+
+A profile is defined as follows:
+
+.. code-block::
+    :linenos:
+
+    tr = ToolRepository()
+    gfortran = tr.get_tool(Category.FORTRAN_COMPILER, "gfortran")
+
+    gfortran.define_profile("base")
+    gfortran.define_profile("fast-debug", inherit_from="base")
+    gfortran.define_profile("full-debug", inherit_from="fast-debug")
+
+    gfortran.add_flags(["-g", '-std=f2008'], "base")
+    gfortran.add_flags(["-O2], "fast-debug")
+    gfortran.add_flags(["-O0", "-fcheck=all"], "full-debug")
+
+Line 3 defines a profile called ``base``, which does not inherit from any
+other profile. Next, a profile ``fast-debug`` is defined, which is based
+on ``base``. It will add the flags ``-O2`` to the command line, together
+with the inherited flags from base, it will be using ``-g -std=f2008 -O2``
+Finally, a ``full-debug`` profile is declared, based on ``fast-debug``.
+Due to the inheritance, it will be using the options
+``-g -std=f2008 -O2 -O0 -fcheck=all``. Note that because of the precedence
+of compiler flags, the no-optimisation flag ``-O0`` will overwrite the
+valued of ``-O2``.
+
+Tools that do not want to use a profile just do not specify the
+profile parameter when defining flags:
+
+.. code-block::
+    :linenos:
+
+    git = config.tool_box[Category.GIT]
+    git.add_flags(["-c", "foo.bar=123"])
+
+This will internally add these flags to the dummy profile ``""``, and
+this will be used by various Fab functions.
+
+By default, the dummy profile ``""`` is not used as a base class for
+any other profile. But it can be convenient to set this up to make
+user scripts slightly easier. Here is an example of the usage
+in LFRic, where at startup time a consistent set of profile modes are
+defined for any compiler and linker:
+
+.. code-block::
+    :linenos:
+
+    tr = ToolRepository()
+    for compiler in (tr[Category.C_COMPILER] +
+                     tr[Category.FORTRAN_COMPILER] +
+                     tr[Category.LINKER]):
+        compiler.define_profile("base", inherit_from="")
+        for profile in ["full-debug", "fast-debug", "production"]:
+            compiler.define_profile(profile, inherit_from="base")
+
+Line 5 defines a ``base`` profile, which inherits from the dummy
+profile ``""``. Then a set of three profiles are defined, each
+inheriting from ``base`` (and therefore in turn from ``""``).
+
+Later, the Intel Fortran compiler and linker ``ifort`` are setup as follows:
+
+.. code-block::
+    :linenos:
+
+    tr = ToolRepository()
+    ifort = tr.get_tool(Category.FORTRAN_COMPILER, "ifort")
+    ifort.add_flags(["-stand", "f08"],           "base")
+    ifort.add_flags(["-g", "-traceback"],        "base")
+    ifort.add_flags(["-O0", "-ftrapuv"],         "full-debug")
+    ifort.add_flags(["-O2", "-fp-model=strict"], "fast-debug")
+    ifort.add_flags(["-O3", "-xhost"],           "production")
+
+    linker = tr.get_tool(Category.LINKER, "linker-ifort")
+    linker.add_lib_flags("yaxt", ["-lyaxt", "-lyaxt_c"])
+    linker.add_post_lib_flags(["-lstdc++"])
+
+The setup of the compiler does not use the dummy profile ``""`` at all,
+so it will stay empty. It is up to the user to decide how to use the
+profiles, it would be entirely valid not to use the ``base`` profile, but
+instead to use ``""``. But when setting up the linker, no profile is specified.
+So line 10 and 11 will set these flags for ``""``. Because of ``base``
+inheriting from ``""``, and any other profile inheriting from ``base``,
+this means these linker flags will be used for all profiles. It would
+be equally valid to define these flags for the ``base`` profile:
+
+.. code-block::
+    :linenos:
+
+    linker = tr.get_tool(Category.LINKER, "linker-ifort")
+    linker.add_lib_flags("yaxt", ["-lyaxt", "-lyaxt_c"], "base")
+    linker.add_post_lib_flags(["-lstdc++"], "base")
+
+This design was chosen, since the most common use case for compiler
+profiles is in changing compiler flags, linker flags are typically
+not affected. So it is more intuitive for a user not to specify
+the profile modes for linker.
+
+The advantage of supporting the profile modes for linker is that
+you can specify profile modes that require additional linking options.
+One example is GNU's address sanitizer, which requires to
+add the compilation option ``-fsanitize=address``, and the linker option
+``-static-libasan``.
+
+.. code-block::
+    :linenos:
+
+    tr = ToolRepository()
+    gfortran = tr.get_tool(Category.FORTRAN_COMPILER, "gfortran")
+    ...
+    gfortran.define_profile("memory-debug", "full-debug")
+    gfortran.add_flags(["-fsanitize=address"], "memory-debug")
+    linker = tr.get_tool(Category.LINKER, "linker-gfortran")
+    linker.add_post_lib_flags(["-static-libasan"], "memory-debug")
+
+This way, by just changing the profile, compilation and linking
+will be affected consistently.
+
+
 Tool arguments
 ============== 
 

@@ -14,6 +14,7 @@ from pytest_subprocess.fake_process import FakeProcess
 
 from tests.conftest import ExtendedRecorder, not_found_callback
 
+from fab.build_config import BuildConfig
 from fab.tools.category import Category
 from fab.tools.compiler import CCompiler, FortranCompiler
 from fab.tools.compiler_wrapper import Mpif90
@@ -29,7 +30,7 @@ def test_c_linker(stub_c_compiler: CCompiler) -> None:
     assert linker.name == "linker-some C compiler"
     assert linker.exec_name == "scc"
     assert linker.suite == "stub"
-    assert linker.flags == []
+    assert linker.get_flags() == []
     assert linker.output_flag == "-o"
 
 
@@ -39,7 +40,7 @@ def test_fortran_linker(stub_fortran_compiler: FortranCompiler) -> None:
     assert linker.name == "linker-some Fortran compiler"
     assert linker.exec_name == "sfc"
     assert linker.suite == "stub"
-    assert linker.flags == []
+    assert linker.get_flags() == []
 
 
 @mark.parametrize("mpi", [True, False])
@@ -83,7 +84,7 @@ def test_gets_ldflags(stub_c_compiler: CCompiler, monkeypatch) -> None:
     """
     monkeypatch.setenv('LDFLAGS', '-lm')
     linker = Linker(compiler=stub_c_compiler)
-    assert "-lm" in linker.flags
+    assert "-lm" in linker.get_flags()
 
 
 def test_check_available(stub_c_compiler: CCompiler,
@@ -211,8 +212,9 @@ def test_linker_add_lib_flags_overwrite_silent(stub_linker: Linker) -> None:
 
 
 class TestLinkerLinking:
-    def test_linker_c(self, stub_c_compiler: CCompiler,
-                      subproc_record: ExtendedRecorder) -> None:
+    def test_c(self, stub_c_compiler: CCompiler,
+               stub_configuration: BuildConfig,
+               subproc_record: ExtendedRecorder) -> None:
         """
         Tests linkwhen no additional libraries are specified.
         """
@@ -220,31 +222,33 @@ class TestLinkerLinking:
         # Add a library to the linker, but don't use it in the link step
         linker.add_lib_flags("customlib", ["-lcustom", "-jcustom"])
 
-        linker.link([Path("a.o")], Path("a.out"), openmp=False)
+        linker.link([Path("a.o")], Path("a.out"), config=stub_configuration)
         assert subproc_record.invocations() == [
             ['scc', "a.o", "-o", "a.out"]
         ]
 
 
-def test_linker_c_with_libraries(stub_c_compiler: CCompiler,
-                                 subproc_record: ExtendedRecorder) -> None:
+def test_c_with_libraries(stub_c_compiler: CCompiler,
+                          stub_configuration: BuildConfig,
+                          subproc_record: ExtendedRecorder) -> None:
     """
     Tests link command line when additional libraries are specified.
     """
     linker = Linker(compiler=stub_c_compiler)
     linker.add_lib_flags("customlib", ["-lcustom", "-jcustom"])
 
-    linker.link([Path("a.o")], Path("a.out"), libs=["customlib"], openmp=True)
+    linker.link([Path("a.o")], Path("a.out"), libs=["customlib"],
+                config=stub_configuration)
 
     # The order of the 'libs' list should be maintained
     assert subproc_record.invocations() == [
-        ['scc', '-omp', "a.o", "-lcustom", "-jcustom", "-o", "a.out"]
+        ['scc', "a.o", "-lcustom", "-jcustom", "-o", "a.out"]
     ]
 
 
-def test_linker_c_with_libraries_and_post_flags(
-        stub_c_compiler: CCompiler, subproc_record: ExtendedRecorder
-) -> None:
+def test_c_with_libraries_and_post_flags(stub_c_compiler: CCompiler,
+                                         stub_configuration: BuildConfig,
+                                         subproc_record: ExtendedRecorder) -> None:
     """
     Tests link command line when a library and additional flags are specified.
     """
@@ -253,15 +257,15 @@ def test_linker_c_with_libraries_and_post_flags(
     linker.add_post_lib_flags(["-extra-flag"])
 
     linker.link([Path("a.o")], Path("a.out"),
-                libs=["customlib"], openmp=False)
+                libs=["customlib"], config=stub_configuration)
     assert subproc_record.invocations() == [
         ['scc', "a.o", "-lcustom", "-jcustom", "-extra-flag", "-o", "a.out"]
     ]
 
 
-def test_linker_c_with_libraries_and_pre_flags(
-        stub_c_compiler: CCompiler, subproc_record: ExtendedRecorder
-) -> None:
+def test_c_with_libraries_and_pre_flags(stub_c_compiler: CCompiler,
+                                        stub_configuration: BuildConfig,
+                                        subproc_record: ExtendedRecorder) -> None:
     """
     Tests link command line when a library and additional flags are specified.
     """
@@ -270,14 +274,15 @@ def test_linker_c_with_libraries_and_pre_flags(
     linker.add_pre_lib_flags(["-L", "/common/path/"])
 
     linker.link([Path("a.o")], Path("a.out"),
-                libs=["customlib"], openmp=False)
+                libs=["customlib"], config=stub_configuration)
     assert subproc_record.invocations() == [
         ['scc', "a.o", "-L", "/common/path/",
          "-lcustom", "-jcustom", "-o", "a.out"]
     ]
 
 
-def test_linker_c_with_unknown_library(stub_c_compiler: CCompiler) -> None:
+def test_c_with_unknown_library(stub_c_compiler: CCompiler,
+                                stub_configuration: BuildConfig) -> None:
     """
     Tests link tool raises an error when unknow libraries are specified.
     """
@@ -286,31 +291,34 @@ def test_linker_c_with_unknown_library(stub_c_compiler: CCompiler) -> None:
     with raises(RuntimeError) as err:
         # Try to use "customlib" when we haven't added it to the linker
         linker.link([Path("a.o")], Path("a.out"),
-                    libs=["customlib"], openmp=True)
+                    libs=["customlib"], config=stub_configuration)
     assert str(err.value) == "Unknown library name: 'customlib'"
 
 
-def test_compiler_linker_add_compiler_flag(
-        stub_c_compiler: CCompiler, subproc_record: ExtendedRecorder
-) -> None:
+def test_add_compiler_flag(stub_c_compiler: CCompiler,
+                           stub_configuration: BuildConfig,
+                           subproc_record: ExtendedRecorder) -> None:
     """
     Tests an argument added to the compiler will appear in the link line.
 
     Even if the arguments are modified after creating the linker.
     """
     linker = Linker(compiler=stub_c_compiler)
-    stub_c_compiler.flags.append("-my-flag")
-    linker.link([Path("a.o")], Path("a.out"), openmp=False)
+    stub_c_compiler.add_flags("-my-flag")
+    linker.link([Path("a.o")], Path("a.out"), config=stub_configuration)
     assert subproc_record.invocations() == [
         ['scc', '-my-flag', 'a.o', '-o', 'a.out']
     ]
 
 
 def test_linker_all_flag_types(stub_c_compiler: CCompiler,
+                               stub_configuration: BuildConfig,
                                subproc_record: ExtendedRecorder,
                                monkeypatch) -> None:
     """
     Tests linker arguments are used in the correct order.
+
+    Todo: Monkeying with private state.
     """
     # Environment variables for both the linker
     monkeypatch.setenv('LDFLAGS', '-ldflag')
@@ -325,9 +333,9 @@ def test_linker_all_flag_types(stub_c_compiler: CCompiler,
     linker.add_lib_flags("customlib2", ["-lib2flag1", "lib2flag2"])
     linker.add_post_lib_flags(["-postlibflag1", "-postlibflag2"])
 
+    stub_configuration._openmp = True
     linker.link([Path("a.o")], Path("a.out"),
-                libs=["customlib2", "customlib1"],
-                openmp=True)
+                libs=["customlib2", "customlib1"], config=stub_configuration)
     assert subproc_record.invocations() == [
         ['scc', "-ldflag", "-linker-flag1", "-linker-flag2",
          "-compiler-flag1", "-compiler-flag2",
@@ -342,9 +350,12 @@ def test_linker_all_flag_types(stub_c_compiler: CCompiler,
 
 
 def test_linker_nesting(stub_c_compiler: CCompiler,
+                        stub_configuration: BuildConfig,
                         subproc_record: ExtendedRecorder) -> None:
     """
     Tests linker arguments appear in correct order.
+
+    Todo: Monkeying with private state.
     """
     linker1 = Linker(compiler=stub_c_compiler)
     linker1.add_pre_lib_flags(["pre_lib1"])
@@ -359,9 +370,9 @@ def test_linker_nesting(stub_c_compiler: CCompiler,
 
     linker1.add_post_lib_flags(["post_lib2"])
 
+    stub_configuration._openmp = True
     linker2.link([Path("a.o")], Path("a.out"),
-                 libs=["lib_a", "lib_b", "lib_c"],
-                 openmp=True)
+                 libs=["lib_a", "lib_b", "lib_c"], config=stub_configuration)
     assert subproc_record.invocations() == [
         ["scc", "-omp", "a.o", "pre_lib2", "pre_lib1", "a_from_1",
          "b_from_2", "c_from_2", "post_lib1", "post_lib2", "-o", "a.out"]

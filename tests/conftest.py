@@ -6,11 +6,13 @@
 """
 Fixtures and helpers for testing.
 """
+from pathlib import Path
 from typing import Dict, List, Optional
 
 from pytest import fixture
 from pytest_subprocess.fake_process import FakeProcess, ProcessRecorder
 
+from fab.build_config import BuildConfig
 from fab.tools.compiler import CCompiler, FortranCompiler
 from fab.tools.linker import Linker
 from fab.tools.tool_box import ToolBox
@@ -155,8 +157,18 @@ def stub_tool_box(stub_fortran_compiler,
     """
     monkeypatch.setattr(stub_fortran_compiler, 'check_available', return_true)
     monkeypatch.setattr(stub_c_compiler, 'check_available', return_true)
+    monkeypatch.setattr(stub_linker, 'check_available', return_true)
     toolbox = ToolBox()
     toolbox.add_tool(stub_fortran_compiler)
     toolbox.add_tool(stub_c_compiler)
     toolbox.add_tool(stub_linker)
     return toolbox
+
+
+@fixture(scope='function')
+def stub_configuration(stub_tool_box: ToolBox, tmp_path: Path) -> BuildConfig:
+    """
+    Provides a minimal configuration with stub compilers.
+    """
+    return BuildConfig("Stub config", stub_tool_box,
+                       fab_workspace=tmp_path / 'fab')

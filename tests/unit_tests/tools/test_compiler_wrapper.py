@@ -13,6 +13,7 @@ from pytest_subprocess.fake_process import FakeProcess
 
 from tests.conftest import ExtendedRecorder, call_list, not_found_callback
 
+from fab.build_config import BuildConfig
 from fab.tools.category import Category
 from fab.tools.compiler import CCompiler, FortranCompiler
 from fab.tools.compiler_wrapper import (CompilerWrapper,
@@ -128,7 +129,7 @@ def test_compiler_hash(fake_process: FakeProcess) -> None:
                     version_regex=r'([\d.]+)')
     mpicc1 = Mpicc(cc1)
     hash1 = mpicc1.get_hash()
-    assert hash1 == 5730248176
+    assert hash1 == 5953380633
 
     # A change in the version number must change the hash:
     fake_process.register(['tcc', '--version'], stdout='8.9')
@@ -179,17 +180,17 @@ def test_syntax_only(stub_c_compiler: CCompiler,
 
 
 def test_module_output(stub_fortran_compiler: FortranCompiler,
-                       stub_c_compiler: CCompiler,
-                       subproc_record: ExtendedRecorder) -> None:
+                       stub_c_compiler: CCompiler):
     """
     Tests handling of module output_flags in a wrapper. In case of testing
     this with a C compiler, an exception must be raised.
 
     Todo: Monkeying with internal state.
     """
+    stub_fortran_compiler.set_module_output_path(Path('/somewhere'))
+    assert stub_fortran_compiler._module_output_path == "/somewhere"
     mpif90 = Mpif90(stub_fortran_compiler)
     mpif90.set_module_output_path(Path("/somewhere"))
-
     assert stub_fortran_compiler._module_output_path == "/somewhere"
 
     mpicc = Mpicc(stub_c_compiler)
@@ -200,6 +201,7 @@ def test_module_output(stub_fortran_compiler: FortranCompiler,
 
 
 def test_fortran_with_add_args(stub_fortran_compiler: FortranCompiler,
+                               stub_configuration: BuildConfig,
                                subproc_record: ExtendedRecorder) -> None:
     """
     Tests that additional arguments are handled as expected in
@@ -211,7 +213,7 @@ def test_fortran_with_add_args(stub_fortran_compiler: FortranCompiler,
     with warns(UserWarning, match="Removing managed flag"):
         mpif90.compile_file(Path("a.f90"), Path('a.o'),
                             add_flags=["-mods", "/b", "-O3"],
-                            openmp=False)
+                            config=stub_configuration)
     # Notice that "-mods /b" has been removed
     assert subproc_record.invocations() == [
         ['mpif90', '-c', "-O3", '-mods', '/module_out', 'a.f90', '-o', 'a.o']
@@ -220,6 +222,7 @@ def test_fortran_with_add_args(stub_fortran_compiler: FortranCompiler,
 
 
 def test_fortran_unnecessary_openmp(stub_fortran_compiler: FortranCompiler,
+                                    stub_configuration: BuildConfig,
                                     subproc_record: ExtendedRecorder) -> None:
     """
     Tests that additional arguments are handled as expected in
@@ -233,15 +236,16 @@ def test_fortran_unnecessary_openmp(stub_fortran_compiler: FortranCompiler,
                      "enabled in the BuildConfiguration"):
         mpif90.compile_file(Path("a.f90"), Path('a.o'),
                             add_flags=["-omp", "-O3"],
-                            openmp=True)
+                            config=stub_configuration)
     assert subproc_record.invocations() == [
-        ['mpif90', '-c', '-omp', '-omp', '-O3', '-mods', '/module_out',
+        ['mpif90', '-c', '-omp', '-O3', '-mods', '/module_out',
          'a.f90', '-o', 'a.o']
     ]
     assert subproc_record.extras()[0]['cwd'] == '.'
 
 
 def test_c_with_add_args(stub_c_compiler: CCompiler,
+                         stub_configuration: BuildConfig,
                          subproc_record: ExtendedRecorder) -> None:
     """
     Tests that additional arguments are handled as expected in a
@@ -252,14 +256,16 @@ def test_c_with_add_args(stub_c_compiler: CCompiler,
 
     # Normal invoke of the C compiler, make sure add_flags are
     # passed through:
-    mpicc.compile_file(Path("a.f90"), Path('a.o'), openmp=False,
-                       add_flags=["-O3"])
+    mpicc.compile_file(Path("a.f90"), Path('a.o'),
+                       add_flags=["-O3"],
+                       config=stub_configuration)
 
     # Invoke C compiler with syntax-only flag (which is only supported
     # by Fortran compilers), which should raise an exception.
     with raises(RuntimeError) as err:
-        mpicc.compile_file(Path("a.f90"), Path('a.o'), openmp=False,
-                           add_flags=["-O3"], syntax_only=True)
+        mpicc.compile_file(Path("a.f90"), Path('a.o'),
+                           add_flags=["-O3"], syntax_only=True,
+                           config=stub_configuration)
     assert str(err.value) == "Syntax-only cannot be used with compiler 'mpicc-some C compiler'."
 
     # Check that providing the openmp flag in add_flag raises a warning:
@@ -268,17 +274,18 @@ def test_c_with_add_args(stub_c_compiler: CCompiler,
                      "enabled in the BuildConfiguration"):
         mpicc.compile_file(Path("a.f90"), Path('a.o'),
                            add_flags=["-omp", "-O3"],
-                           openmp=True)
+                           config=stub_configuration)
 
         assert subproc_record.invocations() == [
             ['mpicc', '-c', "-O3", 'a.f90', '-o', 'a.o'],
-            ['mpicc', '-c', '-omp', '-omp', '-O3', 'a.f90', '-o', 'a.o']
+            ['mpicc', '-c', '-omp', '-O3', 'a.f90', '-o', 'a.o']
         ]
         assert subproc_record.extras()[0]['cwd'] == '.'
         assert subproc_record.extras()[1]['cwd'] == '.'
 
 
 def test_flags_independent(stub_c_compiler: CCompiler,
+                           stub_configuration: BuildConfig,
                            subproc_record: ExtendedRecorder) -> None:
     """
     Tests that flags set in the base compiler will be accessed in the
@@ -286,41 +293,30 @@ def test_flags_independent(stub_c_compiler: CCompiler,
     """
     wrapper = Mpicc(stub_c_compiler)
 
-    assert stub_c_compiler.flags == []
-    assert wrapper.flags == []
+    assert stub_c_compiler.get_flags() == []
+    assert wrapper.get_flags() == []
 
     stub_c_compiler.add_flags(["-a", "-b"])
-    assert stub_c_compiler.flags == ["-a", "-b"]
-    assert wrapper.flags == []
+    assert stub_c_compiler.get_flags() == ["-a", "-b"]
+    assert wrapper.get_flags() == ['-a', '-b']
     assert wrapper.openmp_flag == stub_c_compiler.openmp_flag
 
     # Adding flags to the wrapper should not affect the wrapped compiler:
     wrapper.add_flags(["-d", "-e"])
-    assert stub_c_compiler.flags == ["-a", "-b"]
-    # And the compiler wrapper should report only its own flags.
-    assert wrapper.flags == ["-d", "-e"]
+    assert stub_c_compiler.get_flags() == ['-a', '-b']
+    # And the compiler wrapper should report both sets of flags.
+    assert wrapper.get_flags() == ['-a', '-b', "-d", "-e"]
 
-
-def test_args_with_add_arg(stub_c_compiler: CCompiler,
-                           subproc_record: ExtendedRecorder) -> None:
-    """
-    Tests that flags set in the base compiler will be accessed in the
-    wrapper if also additional flags are specified.
-    """
-    wrapper = CompilerWrapper('warpper', 'wrp', stub_c_compiler)
-    stub_c_compiler.add_flags(["-a", "-b"])
-    wrapper.add_flags(["-d", "-e"])
-
-    wrapper.compile_file(Path("a.f90"), Path('a.o'), add_flags=["-f"],
-                         openmp=True)
+    wrapper.compile_file(Path("a.f90"), Path('a.o'), add_flags=['-f'],
+                         config=stub_configuration)
     assert subproc_record.invocations() == [
-        ['wrp', "-a", "-b", "-c", "-omp", "-d", "-e", "-f",
-         "a.f90", "-o", 'a.o']
+        ['mpicc', "-a", "-b", "-c", "-d", "-e", "-f", "a.f90", "-o", 'a.o']
     ]
     assert subproc_record.extras()[0]['cwd'] == '.'
 
 
 def test_args_without_add_arg(stub_c_compiler: CCompiler,
+                              stub_configuration: BuildConfig,
                               subproc_record: ExtendedRecorder) -> None:
     """
     Tests that flags set in the base compiler will be accessed in the
@@ -331,9 +327,10 @@ def test_args_without_add_arg(stub_c_compiler: CCompiler,
     stub_c_compiler.add_flags(["-a", "-b"])
     wrapper.add_flags(["-d", "-e"])
 
-    wrapper.compile_file(Path("a.f90"), Path('a.o'), openmp=True)
-    assert subproc_record.invocations() == [['wrp', "-a", "-b", "-c", "-omp",
-                                             "-d", "-e", "a.f90", "-o", 'a.o']]
+    wrapper.compile_file(Path("a.f90"), Path('a.o'), config=stub_configuration)
+    assert subproc_record.invocations() == [
+        ['wrp', "-a", "-b", "-c", "-d", "-e", "a.f90", "-o", 'a.o']
+    ]
     assert subproc_record.extras()[0]['cwd'] == '.'
 
 

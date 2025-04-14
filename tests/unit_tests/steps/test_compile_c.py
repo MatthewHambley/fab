@@ -83,7 +83,7 @@ class TestCompileC:
         fake_process.register([
             'scc', '-c', '-Denv_flag', '-I', 'foo/include',
             '-Dhello', 'foo.c',
-            '-o', str(config.prebuild_folder / 'foo.12df783ad.o')
+            '-o', str(config.prebuild_folder / 'foo.13b443ed6.o')
         ])
         with warns(UserWarning, match="_metric_send_conn not set, "
                                       "cannot send metrics"):
@@ -93,7 +93,7 @@ class TestCompileC:
 
         # ensure it created the correct artefact collection
         assert config.artefact_store[ArtefactSet.OBJECT_FILES] == {
-            None: {config.prebuild_folder / 'foo.12df783ad.o', }
+            None: {config.prebuild_folder / 'foo.13b443ed6.o', }
         }
 
     def test_exception_handling(self, content,
@@ -106,7 +106,7 @@ class TestCompileC:
         fake_process.register(['scc', '--version'], stdout='1.2.3')
         fake_process.register([
             'scc', '-c', 'foo.c',
-            '-o', str(config.build_output / '_prebuild/foo.f4399d2d.o')
+            '-o', str(config.build_output / '_prebuild/foo.101865856.o')
         ], returncode=1)
         with raises(RuntimeError):
             compile_c(config=config)
@@ -131,8 +131,8 @@ class TestGetObjComboHash:
         #
         # ToDo: Messing with "private" members.
         #
-        result = _get_obj_combo_hash(compiler, analysed_file, flags)
-        assert result == 5066163117
+        result = _get_obj_combo_hash(config, compiler, analysed_file, flags)
+        assert result == 5289295574
 
     def test_change_file(self, content, flags,
                          fake_process: FakeProcess) -> None:
@@ -147,8 +147,8 @@ class TestGetObjComboHash:
         # ToDo: Messing with "private" members.
         #
         analysed_file._file_hash += 1
-        result = _get_obj_combo_hash(compiler, analysed_file, flags)
-        assert result == 5066163118
+        result = _get_obj_combo_hash(config, compiler, analysed_file, flags)
+        assert result == 5289295575
 
     def test_change_flags(self, content, flags,
                           fake_process: FakeProcess) -> None:
@@ -160,7 +160,7 @@ class TestGetObjComboHash:
         fake_process.register(['scc', '--version'], stdout='1.2.3')
         compiler = config.tool_box[Category.C_COMPILER]
         flags = Flags(['-Dfoo'] + flags)
-        result = _get_obj_combo_hash(compiler, analysed_file, flags)
+        result = _get_obj_combo_hash(config, compiler, analysed_file, flags)
         assert result != 5066163117
 
     def test_change_compiler(self, content, flags,
@@ -179,7 +179,7 @@ class TestGetObjComboHash:
         #       messing with "private" members.
         #
         compiler._name = compiler.name + "XX"
-        result = _get_obj_combo_hash(compiler, analysed_file, flags)
+        result = _get_obj_combo_hash(config, compiler, analysed_file, flags)
         assert result != 5066163117
 
     def test_change_compiler_version(self, content, flags) -> None:
@@ -192,5 +192,5 @@ class TestGetObjComboHash:
         #
         # ToDo: Messing with "private" members.
         #
-        result = _get_obj_combo_hash(compiler, analysed_file, flags)
+        result = _get_obj_combo_hash(config, compiler, analysed_file, flags)
         assert result != 5066163117

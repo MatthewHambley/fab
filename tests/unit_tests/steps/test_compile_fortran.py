@@ -212,30 +212,33 @@ class TestProcessFile:
             res, artefacts = process_file((analysed_file, mp_common_args))
 
         expect_object_fpath = Path(
-            '/fab/proj/build_output/_prebuild/foofile.1f221d889.o'
+            '/fab/proj/build_output/_prebuild/foofile.1ff6e93b2.o'
         )
         assert res == CompiledFile(input_fpath=analysed_file.fpath,
                                    output_fpath=expect_object_fpath)
         assert [call.args for call in record.calls] == [
             ['sfc', '-c', 'flag1', 'flag2', 'foofile',
-             '-o', '/fab/proj/build_output/_prebuild/foofile.1f221d889.o']
+             '-o', '/fab/proj/build_output/_prebuild/foofile.1ff6e93b2.o']
         ]
 
-        assert Path(
-            '/fab/proj/build_output/_prebuild/mod_def_1.17b90457f.mod'
-        ).read_text() == "First module"
-        assert Path(
-            '/fab/proj/build_output/_prebuild/mod_def_2.17b90457f.mod'
-        ).read_text() == "Second module"
-
-        # check the correct artefacts were returned
+        # check the correct artefacts were generated.
+        #
+        # This is done before opening files in case hasehse have changed.
+        #
         pb = mp_common_args.config.prebuild_folder
         assert artefacts is not None
         assert set(artefacts) == {
-            pb / 'foofile.1f221d889.o',
-            pb / 'mod_def_2.17b90457f.mod',
-            pb / 'mod_def_1.17b90457f.mod'
+            pb / 'foofile.1ff6e93b2.o',
+            pb / 'mod_def_2.188dd00a8.mod',
+            pb / 'mod_def_1.188dd00a8.mod'
         }
+
+        assert Path(
+            '/fab/proj/build_output/_prebuild/mod_def_1.188dd00a8.mod'
+        ).read_text() == "First module"
+        assert Path(
+            '/fab/proj/build_output/_prebuild/mod_def_2.188dd00a8.mod'
+        ).read_text() == "Second module"
 
     def test_with_prebuild(self, content,
                            fs: FakeFilesystem,
@@ -252,40 +255,44 @@ class TestProcessFile:
         Path('/fab/proj/build_output/mod_def_1.mod').write_text("First module")
         Path('/fab/proj/build_output/mod_def_2.mod').write_text("Second module")
         Path(
-            '/fab/proj/build_output/_prebuild/mod_def_1.17b90457f.mod'
+            '/fab/proj/build_output/_prebuild/mod_def_1.188dd00a8.mod'
         ).write_text("First module")
         Path(
-            '/fab/proj/build_output/_prebuild/mod_def_2.17b90457f.mod'
+            '/fab/proj/build_output/_prebuild/mod_def_2.188dd00a8.mod'
         ).write_text("Second module")
         Path(
-            '/fab/proj/build_output/_prebuild/foofile.1f221d889.o'
+            '/fab/proj/build_output/_prebuild/foofile.1ff6e93b2.o'
         ).write_text("Object file")
 
         with catch_warnings():
             res, artefacts = process_file((analysed_file, mp_common_args))
 
         expect_object_fpath = Path(
-            '/fab/proj/build_output/_prebuild/foofile.1f221d889.o'
+            '/fab/proj/build_output/_prebuild/foofile.1ff6e93b2.o'
         )
-        assert res == CompiledFile(input_fpath=analysed_file.fpath,
-                                   output_fpath=expect_object_fpath)
-        assert [call.args for call in record.calls] == []
 
-        assert Path(
-            '/fab/proj/build_output/_prebuild/mod_def_1.17b90457f.mod'
-        ).read_text() == "First module"
-        assert Path(
-            '/fab/proj/build_output/_prebuild/mod_def_2.17b90457f.mod'
-        ).read_text() == "Second module"
-
-        # check the correct artefacts were returned
+        # check the correct artefacts were generated.
+        #
+        # This is done before anything else in case hashes have changed.
+        #
         pb = mp_common_args.config.prebuild_folder
         assert artefacts is not None
         assert set(artefacts) == {
-            pb / 'foofile.1f221d889.o',
-            pb / 'mod_def_2.17b90457f.mod',
-            pb / 'mod_def_1.17b90457f.mod'
+            pb / 'foofile.1ff6e93b2.o',
+            pb / 'mod_def_2.188dd00a8.mod',
+            pb / 'mod_def_1.188dd00a8.mod'
         }
+
+        assert [call.args for call in record.calls] == []
+        assert res == CompiledFile(input_fpath=analysed_file.fpath,
+                                   output_fpath=expect_object_fpath)
+
+        assert Path(
+            '/fab/proj/build_output/_prebuild/mod_def_1.188dd00a8.mod'
+        ).read_text() == "First module"
+        assert Path(
+            '/fab/proj/build_output/_prebuild/mod_def_2.188dd00a8.mod'
+        ).read_text() == "Second module"
 
     def test_file_hash(self, content, fs: FakeFilesystem, fake_process: FakeProcess) -> None:
         """
@@ -302,40 +309,43 @@ class TestProcessFile:
         Path('/fab/proj/build_output/mod_def_1.mod').write_text("First module")
         Path('/fab/proj/build_output/mod_def_2.mod').write_text("Second module")
         Path(
-            '/fab/proj/build_output/_prebuild/mod_def_1.17b90457f.mod'
+            '/fab/proj/build_output/_prebuild/mod_def_1.188dd00a9.mod'
         ).write_text("First module")
         Path(
-            '/fab/proj/build_output/_prebuild/mod_def_2.17b90457f.mod'
+            '/fab/proj/build_output/_prebuild/mod_def_2.188dd00a9.mod'
         ).write_text("Second module")
 
         with catch_warnings():
             res, artefacts = process_file((analysed_file, mp_common_args))
 
         expect_object_fpath = Path(
-            '/fab/proj/build_output/_prebuild/foofile.1f221d88a.o'
+            '/fab/proj/build_output/_prebuild/foofile.1ff6e93b3.o'
         )
         assert res == CompiledFile(input_fpath=analysed_file.fpath,
                                    output_fpath=expect_object_fpath)
         assert [call.args for call in record.calls] == [
             ['sfc', '-c', 'flag1', 'flag2', 'foofile',
-             '-o', '/fab/proj/build_output/_prebuild/foofile.1f221d88a.o']
+             '-o', '/fab/proj/build_output/_prebuild/foofile.1ff6e93b3.o']
         ]
 
-        assert Path(
-            '/fab/proj/build_output/_prebuild/mod_def_1.17b904580.mod'
-        ).read_text() == "First module"
-        assert Path(
-            '/fab/proj/build_output/_prebuild/mod_def_2.17b904580.mod'
-        ).read_text() == "Second module"
-
-        # check the correct artefacts were returned
+        # check the correct artefacts were generated.
+        #
+        # This is done before opening the files incase hashes have changed.
+        #
         pb = mp_common_args.config.prebuild_folder
         assert artefacts is not None
         assert set(artefacts) == {
-            pb / 'foofile.1f221d88a.o',
-            pb / 'mod_def_2.17b904580.mod',
-            pb / 'mod_def_1.17b904580.mod'
+            pb / 'foofile.1ff6e93b3.o',
+            pb / 'mod_def_2.188dd00a9.mod',
+            pb / 'mod_def_1.188dd00a9.mod'
         }
+
+        assert Path(
+            '/fab/proj/build_output/_prebuild/mod_def_1.188dd00a9.mod'
+        ).read_text() == "First module"
+        assert Path(
+            '/fab/proj/build_output/_prebuild/mod_def_2.188dd00a9.mod'
+        ).read_text() == "Second module"
 
     def test_flags_hash(self, content, fs: FakeFilesystem, fake_process: FakeProcess) -> None:
         """
@@ -354,40 +364,44 @@ class TestProcessFile:
         Path('/fab/proj/build_output/mod_def_1.mod').write_text("First module")
         Path('/fab/proj/build_output/mod_def_2.mod').write_text("Second module")
         Path(
-            '/fab/proj/build_output/_prebuild/mod_def_1.17b90457f.mod'
+            '/fab/proj/build_output/_prebuild/mod_def_1.188dd00a8.mod'
         ).write_text("First module")
         Path(
-            '/fab/proj/build_output/_prebuild/mod_def_2.17b90457f.mod'
+            '/fab/proj/build_output/_prebuild/mod_def_2.188dd00a8.mod'
         ).write_text("Second module")
 
         with catch_warnings():
             res, artefacts = process_file((analysed_file, mp_common_args))
 
         expect_object_fpath = Path(
-            '/fab/proj/build_output/_prebuild/foofile.1f2e43e5e.o'
+            '/fab/proj/build_output/_prebuild/foofile.20030f987.o'
         )
         assert res == CompiledFile(input_fpath=analysed_file.fpath,
                                    output_fpath=expect_object_fpath)
         assert [call.args for call in record.calls] == [
             ['sfc', '-c', 'flag1', 'flag3', 'foofile',
-             '-o', '/fab/proj/build_output/_prebuild/foofile.1f2e43e5e.o']
+             '-o', '/fab/proj/build_output/_prebuild/foofile.20030f987.o']
         ]
 
-        assert Path(
-            '/fab/proj/build_output/_prebuild/mod_def_1.17b90457f.mod'
-        ).read_text() == "First module"
-        assert Path(
-            '/fab/proj/build_output/_prebuild/mod_def_2.17b90457f.mod'
-        ).read_text() == "Second module"
-
-        # check the correct artefacts were returned
+        # check the correct artefacts were generated.
+        #
+        # This is done before attempting to open files in case hashes have
+        # changed.
+        #
         pb = mp_common_args.config.prebuild_folder
         assert artefacts is not None
         assert set(artefacts) == {
-            pb / 'foofile.1f2e43e5e.o',
-            pb / 'mod_def_2.17b90457f.mod',
-            pb / 'mod_def_1.17b90457f.mod'
+            pb / 'foofile.20030f987.o',
+            pb / 'mod_def_2.188dd00a8.mod',
+            pb / 'mod_def_1.188dd00a8.mod'
         }
+
+        assert Path(
+            '/fab/proj/build_output/_prebuild/mod_def_1.188dd00a8.mod'
+        ).read_text() == "First module"
+        assert Path(
+            '/fab/proj/build_output/_prebuild/mod_def_2.188dd00a8.mod'
+        ).read_text() == "Second module"
 
     def test_deps_hash(self, content, fs: FakeFilesystem, fake_process: FakeProcess) -> None:
         """
@@ -406,40 +420,44 @@ class TestProcessFile:
         Path('/fab/proj/build_output/mod_def_1.mod').write_text("First module")
         Path('/fab/proj/build_output/mod_def_2.mod').write_text("Second module")
         Path(
-            '/fab/proj/build_output/_prebuild/mod_def_1.17b90457f.mod'
+            '/fab/proj/build_output/_prebuild/mod_def_1.188dd00a8.mod'
         ).write_text("First module")
         Path(
-            '/fab/proj/build_output/_prebuild/mod_def_2.17b90457f.mod'
+            '/fab/proj/build_output/_prebuild/mod_def_2.188dd00a8.mod'
         ).write_text("Second module")
 
         with catch_warnings():
             res, artefacts = process_file((analysed_file, mp_common_args))
 
         expect_object_fpath = Path(
-            '/fab/proj/build_output/_prebuild/foofile.1f221d88a.o'
+            '/fab/proj/build_output/_prebuild/foofile.1ff6e93b3.o'
         )
         assert res == CompiledFile(input_fpath=analysed_file.fpath,
                                    output_fpath=expect_object_fpath)
         assert [call.args for call in record.calls] == [
             ['sfc', '-c', 'flag1', 'flag2', 'foofile',
-             '-o', '/fab/proj/build_output/_prebuild/foofile.1f221d88a.o']
+             '-o', '/fab/proj/build_output/_prebuild/foofile.1ff6e93b3.o']
         ]
 
-        assert Path(
-            '/fab/proj/build_output/_prebuild/mod_def_1.17b90457f.mod'
-        ).read_text() == "First module"
-        assert Path(
-            '/fab/proj/build_output/_prebuild/mod_def_2.17b90457f.mod'
-        ).read_text() == "Second module"
-
-        # check the correct artefacts were returned
+        # check the correct artefacts were created.
+        #
+        # This is done before attempting to open the files incase their
+        # hashes have changed.
+        #
         pb = mp_common_args.config.prebuild_folder
         assert artefacts is not None
         assert set(artefacts) == {
-            pb / 'foofile.1f221d88a.o',
-            pb / 'mod_def_2.17b90457f.mod',
-            pb / 'mod_def_1.17b90457f.mod'
+            pb / 'foofile.1ff6e93b3.o',
+            pb / 'mod_def_2.188dd00a8.mod',
+            pb / 'mod_def_1.188dd00a8.mod'
         }
+
+        assert Path(
+            '/fab/proj/build_output/_prebuild/mod_def_1.188dd00a8.mod'
+        ).read_text() == "First module"
+        assert Path(
+            '/fab/proj/build_output/_prebuild/mod_def_2.188dd00a8.mod'
+        ).read_text() == "Second module"
 
     def test_mod_missing(self, content, fs: FakeFilesystem, fake_process: FakeProcess) -> None:
         """
@@ -454,44 +472,48 @@ class TestProcessFile:
         Path('/fab/proj/build_output/mod_def_1.mod').write_text("First module")
         Path('/fab/proj/build_output/mod_def_2.mod').write_text("Second module")
         Path(
-            '/fab/proj/build_output/_prebuild/mod_def_2.17b90457f.mod'
+            '/fab/proj/build_output/_prebuild/mod_def_2.188dd00a8.mod'
         ).write_text("Second module")
         Path(
-            '/fab/proj/build_output/_prebuild/foofile.1f221d889.o'
+            '/fab/proj/build_output/_prebuild/foofile.1ff6e93b2.o'
         ).write_text("Object file")
 
         with catch_warnings():
             res, artefacts = process_file((analysed_file, mp_common_args))
 
         expect_object_fpath = Path(
-            '/fab/proj/build_output/_prebuild/foofile.1f221d889.o'
+            '/fab/proj/build_output/_prebuild/foofile.1ff6e93b2.o'
         )
         assert res == CompiledFile(input_fpath=analysed_file.fpath,
                                    output_fpath=expect_object_fpath)
         assert [call.args for call in record.calls] == [
             ['sfc', '-c', 'flag1', 'flag2', 'foofile',
-             '-o', '/fab/proj/build_output/_prebuild/foofile.1f221d889.o']
+             '-o', '/fab/proj/build_output/_prebuild/foofile.1ff6e93b2.o']
         ]
 
-        assert Path(
-            '/fab/proj/build_output/_prebuild/mod_def_1.17b90457f.mod'
-        ).read_text() == "First module"
-        assert Path(
-            '/fab/proj/build_output/_prebuild/mod_def_2.17b90457f.mod'
-        ).read_text() == "Second module"
-
-        # check the correct artefacts were returned
+        # check the correct artefacts were created.
+        #
+        # This is done before checking their contents to avoid problems
+        # failing to poen the file if the checksum has changed.
+        #
         pb = mp_common_args.config.prebuild_folder
         assert artefacts is not None
         assert set(artefacts) == {
-            pb / 'foofile.1f221d889.o',
-            pb / 'mod_def_2.17b90457f.mod',
-            pb / 'mod_def_1.17b90457f.mod'
+            pb / 'foofile.1ff6e93b2.o',
+            pb / 'mod_def_2.188dd00a8.mod',
+            pb / 'mod_def_1.188dd00a8.mod'
         }
 
+        assert Path(
+            '/fab/proj/build_output/_prebuild/mod_def_1.188dd00a8.mod'
+        ).read_text() == "First module"
+        assert Path(
+            '/fab/proj/build_output/_prebuild/mod_def_2.188dd00a8.mod'
+        ).read_text() == "Second module"
+
     @mark.parametrize(['version', 'mod_hash', 'obj_hash'], [
-        ('1.2.3', '17b90457f', '1f221d889'),
-        ('9.8.7', '1a5164b89', '21ba7de93')
+        ('1.2.3', '188dd00a8', '1ff6e93b2'),
+        ('9.8.7', '1b26306b2', '228f499bc')
     ])
     def test_obj_missing(self, content, version, mod_hash, obj_hash,
                          fs: FakeFilesystem, fake_process: FakeProcess) -> None:
