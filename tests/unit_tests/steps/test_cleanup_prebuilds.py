@@ -117,16 +117,17 @@ def test_remove_all_unused(tmp_path: Path) -> None:
     ]
     for fname in starting_files:
         fname.touch()
+
     current_files = [
         tmp_path / 'michael.1943.o',
-        tmp_path / 'eric.1943.o',
+        tmp_path / 'eric.1943.o'
     ]
 
     num_removed = remove_all_unused(starting_files, current_files)
 
     assert num_removed == 3
 
-    assert [fobject for fobject in tmp_path.iterdir()] == current_files
+    assert sorted([fobject for fobject in tmp_path.iterdir()]) == sorted(current_files)
 
 
 def test_get_prebuild_file_groups():
