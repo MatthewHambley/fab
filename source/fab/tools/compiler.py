@@ -94,6 +94,11 @@ class Compiler(CompilerSuiteTool):
         return self._openmp_flag
 
     @property
+    def compile_flag(self) -> str:
+        ''':returns: the flag to indicate compilation only (not linking).'''
+        return self._compile_flag
+
+    @property
     def output_flag(self) -> str:
         """
         :returns: compiler argument for output file.
@@ -101,9 +106,8 @@ class Compiler(CompilerSuiteTool):
         return self._output_flag
 
     def get_hash(self, profile: Optional[str] = None) -> int:
-        """
-        :returns: hash of compiler name and version.
-        """
+        ''':returns: a hash based on the compiler name and version.
+        '''
         return (zlib.crc32(self.name.encode()) +
                 zlib.crc32(str(self.get_flags(profile)).encode()) +
                 zlib.crc32(self.get_version_string().encode()))
@@ -115,6 +119,42 @@ class Compiler(CompilerSuiteTool):
         :returns: the flags to be used with this tool.'''
         fflags = os.getenv("FFLAGS", "").split()
         return self._flags[profile] + fflags
+
+    def get_all_commandline_options(
+            self,
+            config: "BuildConfig",
+            input_file: Path,
+            output_file: Path,
+            add_flags:  Union[None, List[str]] = None) -> List[str]:
+        '''This function returns all command line options for a compiler
+        (but not the executable name). It is used by a compiler wrapper
+        to pass the right flags to the wrapper.
+        This base implementation adds the input and output filename (including
+        the -o flag), the flag to only compile (and not link), and if
+        required openmp.
+
+        :param input_file: the name of the input file.
+        :param output_file: the name of the output file.
+        :param config: The BuildConfig, from which compiler profile and OpenMP
+            status are taken.
+        :param add_flags: additional flags for the compiler.
+
+        :returns: all command line options for compilation.
+        '''
+        params: List[str] = [self._compile_flag]
+
+        if config.openmp:
+            params.append(self.openmp_flag)
+        if add_flags:
+            if self.openmp_flag in add_flags:
+                warnings.warn(
+                    f"OpenMP flag '{self.openmp_flag}' explicitly provided. "
+                    f"OpenMP should be enabled in the BuildConfiguration "
+                    f"instead.")
+            params += add_flags
+
+        params.extend([input_file.name, self._output_flag, str(output_file)])
+        return params
 
     def compile_file(self, input_file: Path,
                      output_file: Path,
@@ -134,21 +174,8 @@ class Compiler(CompilerSuiteTool):
         :param add_flags: additional compiler flags.
         '''
 
-        params: List[Union[Path, str]] = [self._compile_flag]
-
-        if config.openmp:
-            params.append(self.openmp_flag)
-        if add_flags:
-            if self.openmp_flag in add_flags:
-                warnings.warn(
-                    f"OpenMP flag '{self.openmp_flag}' explicitly provided. "
-                    f"OpenMP should be enabled in the BuildConfiguration "
-                    f"instead.")
-            params += add_flags
-
-        params.extend([input_file.name,
-                      self._output_flag, str(output_file)])
-
+        params = self.get_all_commandline_options(config, input_file,
+                                                  output_file, add_flags)
         return self.run(profile=config.profile, cwd=input_file.parent,
                         additional_parameters=params)
 
@@ -345,12 +372,59 @@ class FortranCompiler(Compiler):
         '''
         self._module_output_path = str(path)
 
+    def get_all_commandline_options(
+            self,
+            config: "BuildConfig",
+            input_file: Path,
+            output_file: Path,
+            add_flags:  Union[None, List[str]] = None,
+            syntax_only: Optional[bool] = False) -> List[str]:
+        '''This function returns all command line options for a Fortran
+        compiler (but not the executable name). It is used by a compiler
+        wrapper to pass the right flags to the wrapper.
+        This Fortran-specific implementation adds the module- and
+        syntax-only flags (as required) to the standard compiler
+        flags.
+
+        :param input_file: the name of the input file.
+        :param output_file: the name of the output file.
+        :param config: The BuildConfig, from which compiler profile and OpenMP
+            status are taken.
+        :param add_flags: additional flags for the compiler.
+        :param syntax_only: if set, the compiler will only do
+            a syntax check
+
+        :returns: all command line options for Fortran compilation.
+        '''
+        if add_flags:
+            add_flags = Flags(add_flags)
+            if self._module_folder_flag:
+                # Remove any module flag the user has specified, since
+                # this will interfere with Fab's module handling.
+                add_flags.remove_flag(self._module_folder_flag,
+                                      has_parameter=True)
+            add_flags.remove_flag(self._compile_flag, has_parameter=False)
+
+        # Get the flags from the base class
+        params = super().get_all_commandline_options(config, input_file,
+                                                     output_file, add_flags)
+        if syntax_only and self._syntax_only_flag:
+            params.append(self._syntax_only_flag)
+
+        # Append module output path
+        if self._module_folder_flag and self._module_output_path:
+            params.append(self._module_folder_flag)
+            params.append(self._module_output_path)
+
+        return params
+
     def compile_file(self, input_file: Path,
                      output_file: Path,
                      config: "BuildConfig",
                      add_flags: Union[None, List[str]] = None,
                      syntax_only: Optional[bool] = False):
-        '''Compiles a file.
+        '''Compiles a file. This basically re-implements `compile_file` of
+        the base class, but passes the syntax_only flag in
 
         :param input_file: the name of the input file.
         :param output_file: the name of the output file.
@@ -360,25 +434,12 @@ class FortranCompiler(Compiler):
         :param syntax_only: if set, the compiler will only do
             a syntax check
         '''
+        params = self.get_all_commandline_options(config, input_file,
+                                                  output_file, add_flags,
+                                                  syntax_only)
 
-        params: List[str] = []
-        if add_flags:
-            new_flags = Flags(add_flags)
-            if self._module_folder_flag:
-                new_flags.remove_flag(self._module_folder_flag,
-                                      has_parameter=True)
-            new_flags.remove_flag(self._compile_flag, has_parameter=False)
-            params += new_flags
-
-        if syntax_only and self._syntax_only_flag:
-            params.append(self._syntax_only_flag)
-
-        # Append module output path
-        if self._module_folder_flag and self._module_output_path:
-            params.append(self._module_folder_flag)
-            params.append(self._module_output_path)
-        super().compile_file(input_file, output_file, config=config,
-                             add_flags=params)
+        self.run(profile=config.profile, cwd=input_file.parent,
+                 additional_parameters=params)
 
 
 # ============================================================================
@@ -438,8 +499,6 @@ class Icc(CCompiler):
     def __init__(self, name: str = "icc", exec_name: str = "icc"):
         super().__init__(name, exec_name, suite="intel-classic",
                          openmp_flag="-qopenmp",
-                         availability_option='-V',
-                         version_argument='-V',
                          version_regex=r"icc \(ICC\) (\d[\d\.]+\d) ")
 
 
@@ -457,7 +516,6 @@ class Ifort(FortranCompiler):
                          module_folder_flag="-module",
                          openmp_flag="-qopenmp",
                          syntax_only_flag="-syntax-only",
-                         version_argument='-V',
                          version_regex=r"ifort \(IFORT\) (\d[\d\.]+\d) ")
 
 
@@ -497,9 +555,8 @@ class Ifx(FortranCompiler):
 # nvidia
 # ============================================================================
 class Nvc(CCompiler):
-    '''Class for Nvidia's nvc compiler. Nvc has a '-' in the
-    version number. In order to get this, we overwrite run_version_command
-    and replace any '-' with a '.'
+    '''Class for Nvidia's nvc compiler. Note that the '-' in the Nvidia
+    version number is ignored, e.g. 23.5-0 would return '23.5'.
 
     :param name: name of this compiler.
     :param exec_name: name of the executable.
@@ -514,9 +571,8 @@ class Nvc(CCompiler):
 
 # ============================================================================
 class Nvfortran(FortranCompiler):
-    '''Class for Nvidia's nvfortran compiler. Nvfortran has a '-' in the
-    version number. In order to get this, we overwrite run_version_command
-    and replace any '-' with a '.'
+    '''Class for Nvidia's nvfortran compiler. Note that the '-' in the Nvidia
+    version number is ignored, e.g. 23.5-0 would return '23.5'.
 
     :param name: name of this compiler.
     :param exec_name: name of the executable.
@@ -574,4 +630,4 @@ class Crayftn(FortranCompiler):
                          openmp_flag="-homp",
                          syntax_only_flag="-syntax-only",
                          version_regex=(r"Cray Fortran : Version "
-                                        r"(\d[\d\.]+\d)  "))
+                                        r"(\d[\d\.]+\d)"))

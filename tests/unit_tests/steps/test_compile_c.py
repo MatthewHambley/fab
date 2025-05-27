@@ -89,7 +89,8 @@ class TestCompileC:
                                       "cannot send metrics"):
             compile_c(config=config,
                       path_flags=[AddFlags(match='$source/*',
-                                           flags=['-I', 'foo/include', '-Dhello'])])
+                                           flags=['-I', 'foo/include',
+                                                  '-Dhello'])])
 
         # ensure it created the correct artefact collection
         assert config.artefact_store[ArtefactSet.OBJECT_FILES] == {
@@ -122,10 +123,10 @@ class TestGetObjComboHash:
 
     def test_vanilla(self, content, flags, fake_process: FakeProcess) -> None:
         """
-        Tests hashing.
+        Test that we get the expected hashes in this test setup.
         """
-        config, analysed_file = content
 
+        config, analysed_file = content
         fake_process.register(['scc', '--version'], stdout='1.2.3')
         compiler = config.tool_box[Category.C_COMPILER]
         #

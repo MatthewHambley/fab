@@ -40,6 +40,7 @@ class Tool:
         self._logger = logging.getLogger(__name__)
         self._name = name
         self._exec_name = str(exec_name)
+        self._full_path = ""
         self._flags = ProfileFlags()
         self._category = category
         if availability_option:
@@ -68,6 +69,16 @@ class Tool:
             return False
         return True
 
+    def set_full_path(self, full_path: str):
+        '''This function adds the full path to a tool. This allows
+        tools to be used that are not in the user's PATH. The ToolRepository
+        will automatically update the path for a tool if the user specified
+        a full path.
+
+        :param full_path: the full path to the executable.
+        '''
+        self._full_path = full_path
+
     @property
     def is_available(self) -> bool:
         '''Checks if the tool is available or not. It will call a tool-specific
@@ -89,17 +100,9 @@ class Tool:
     @property
     def exec_name(self) -> str:
         ''':returns: the name of the executable.'''
+        if self._full_path:
+            return self._full_path
         return self._exec_name
-
-    def change_exec_name(self, exec_name: str):
-        '''Changes the name of the executable This function should in general
-        not be used (typically it is better to create a new tool instead). The
-        function is only provided to support CompilerWrapper (like mpif90),
-        which need all parameters from the original compiler, but call the
-        wrapper. The name of the compiler will be changed just before
-        compilation, and then set back to its original value
-        '''
-        self._exec_name = exec_name
 
     @property
     def name(self) -> str:
@@ -147,6 +150,9 @@ class Tool:
         return self._logger
 
     def __str__(self):
+        '''Returns a name for this string. It uses _exec_name to
+        avoid adding a full path (if set by the user).
+        '''
         return f"{type(self).__name__} - {self._name}: {self._exec_name}"
 
     def run(self,

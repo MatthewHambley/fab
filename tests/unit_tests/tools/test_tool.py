@@ -12,11 +12,8 @@ from pathlib import Path
 from pytest import raises
 from pytest_subprocess.fake_process import FakeProcess
 
+from fab.tools import Category, CompilerSuiteTool, ProfileFlags, Tool
 from tests.conftest import ExtendedRecorder, call_list, not_found_callback
-
-from fab.tools.category import Category
-from fab.tools.flags import ProfileFlags
-from fab.tools.tool import Tool
 
 
 def test_constructor() -> None:
@@ -26,6 +23,8 @@ def test_constructor() -> None:
     tool = Tool("gnu", "gfortran", Category.FORTRAN_COMPILER)
     assert str(tool) == "Tool - gnu: gfortran"
     assert tool.exec_name == "gfortran"
+    assert tool._exec_name == "gfortran"
+    assert tool._full_path == ""
     assert tool.name == "gnu"
     assert tool.category == Category.FORTRAN_COMPILER
     assert isinstance(tool.logger, logging.Logger)
@@ -54,16 +53,16 @@ def test_constructor() -> None:
     assert misc.category == Category.MISC
 
 
-def test_chance_exec_name() -> None:
-    """
-    Tests changing the executable.
-
-    ToDo: Shouldn't the executable be inviolable?
-    """
-    tool = Tool("gfortran", "gfortran", Category.FORTRAN_COMPILER)
-    assert tool.exec_name == "gfortran"
-    tool.change_exec_name("start_me_instead")
-    assert tool.exec_name == "start_me_instead"
+def test_tool_set_path():
+    '''Test that we can add an absolute path for a tool,
+    e.g. in cases that a known compiler is not in the user's path.
+    '''
+    gfortran = Tool("gfortran", "gfortran", Category.FORTRAN_COMPILER)
+    gfortran.set_full_path("/usr/bin/gfortran1.2.3")
+    # Exec name should now return the full path
+    assert gfortran.exec_name == "/usr/bin/gfortran1.2.3"
+    # Path the name of the compiler is unchanged
+    assert gfortran.name == "gfortran"
 
 
 def test_is_available(fake_process: FakeProcess) -> None:
@@ -75,13 +74,32 @@ def test_is_available(fake_process: FakeProcess) -> None:
     assert tool.is_available
 
 
-def test_availability_argument() -> None:
+def test_is_not_available(fake_process: FakeProcess) -> None:
+    """
+    Tests a tool that is not available.
+    """
+    fake_process.register(['gfortran', '--version'],
+                          callback=not_found_callback)
+    tool = Tool("gfortran", "gfortran", Category.FORTRAN_COMPILER)
+    assert not tool.is_available
+
+    # When we try to run something with this tool, we should get
+    # an exception now:
+    with raises(RuntimeError) as err:
+        tool.run("--ops")
+    assert ("Tool 'gfortran' is not available to run '['gfortran', '--ops']"
+            in str(err.value))
+
+
+def test_availability_argument(fake_process: FakeProcess) -> None:
     """
     Tests setting the argument used to detect availability.
     """
     tool = Tool("ftool", "ftool", Category.FORTRAN_COMPILER,
                 availability_option="am_i_here")
     assert tool.availability_option == "am_i_here"
+    fake_process.register(['ftool', 'am_i_here'], callback=not_found_callback)
+    assert not tool.check_available()
 
 
 def test_run_missing(fake_process: FakeProcess) -> None:
@@ -96,10 +114,20 @@ def test_run_missing(fake_process: FakeProcess) -> None:
         "Unable to execute command: ['stool', '--ops']"
     )
 
+    # Check that stdout and stderr is returned
+    fake_process.register(['stool', '--ops'], returncode=1,
+                          stdout="this is stdout",
+                          stderr="this is stderr")
+    tool = Tool("some tool", "stool", Category.MISC)
+    with raises(RuntimeError) as err:
+        tool.run("--ops")
+    assert "this is stdout" in str(err.value)
+    assert "this is stderr" in str(err.value)
 
-def test_arguments():
+
+def test_tool_flags_no_profile():
     """
-    Tests tool arguments.
+    Test that flags without using a profile work as expected.
     """
     tool = Tool("some tool", "stool", Category.MISC)
     assert tool.get_flags() == []
@@ -187,3 +215,15 @@ class TestToolRun:
             tool.run()
         assert str(err.value) == "Unable to execute command: ['tool']"
         assert call_list(fake_process) == [['tool']]
+
+
+def test_suite_tool():
+    '''Test the constructor.'''
+    tool = CompilerSuiteTool("gnu", "gfortran", "gnu",
+                             Category.FORTRAN_COMPILER)
+    assert str(tool) == "CompilerSuiteTool - gnu: gfortran"
+    assert tool.exec_name == "gfortran"
+    assert tool.name == "gnu"
+    assert tool.suite == "gnu"
+    assert tool.category == Category.FORTRAN_COMPILER
+    assert isinstance(tool.logger, logging.Logger)
