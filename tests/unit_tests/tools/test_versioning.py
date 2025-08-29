@@ -236,13 +236,16 @@ class TestSubversion:
         assert svn.name == "Subversion"
         assert svn.exec_name == "svn"
 
-    def test_svn_export(self, subproc_record: ExtendedRecorder) -> None:
+    def test_svn_export(self, fs: FakeFilesystem,
+                        subproc_record: ExtendedRecorder) -> None:
         """
         Ensures an export from repository works.
 
         Subversion is mocked here to allow testing without the executable.
         Testing with happens below in TestSubversionReal.
         """
+        fs.create_file('/bin/svn', create_missing_dirs=True, st_mode=0o755)
+
         svn = Subversion()
         #
         # With revision
@@ -252,17 +255,21 @@ class TestSubversion:
         # Without revision
         #
         svn.export("/src", "/dst")
+
         assert subproc_record.invocations() == [
             ["svn", "export", "--force", "--revision", "123", "/src", "/dst"],
             ["svn", "export", "--force", "/src", "/dst"]
         ]
 
-    def test_svn_checkout(self, subproc_record: ExtendedRecorder) -> None:
+    def test_svn_checkout(self, fs: FakeFilesystem,
+                          subproc_record: ExtendedRecorder) -> None:
         """
         Check checkout svn functionality. The tests here will actually
         mock the svn results, so they will work even if subversion is not
         installed. The system_tests will test an actual check out etc.
         """
+        fs.create_file('/bin/svn', create_missing_dirs=True, st_mode=0o755)
+
         svn = Subversion()
         #
         # Test with a revision.
@@ -277,12 +284,15 @@ class TestSubversion:
             ["svn", "checkout", "/src", "/dst"]
         ]
 
-    def test_svn_update(self, subproc_record: ExtendedRecorder) -> None:
+    def test_svn_update(self, fs: FakeFilesystem,
+                        subproc_record: ExtendedRecorder) -> None:
         """
         Check update svn functionality. The tests here will actually
         mock the svn results, so they will work even if subversion is not
         installed. The system_tests will test an actual check out etc.
         """
+        fs.create_file('/bin/svn', create_missing_dirs=True, st_mode=0o755)
+
         svn = Subversion()
         svn.update("/dst", revision="123")
         assert subproc_record.invocations() == [
@@ -290,12 +300,15 @@ class TestSubversion:
         ]
         assert subproc_record.extras()[0]['cwd'] == '/dst'
 
-    def test_svn_merge(self, subproc_record: ExtendedRecorder) -> None:
+    def test_svn_merge(self, fs: FakeFilesystem,
+                       subproc_record: ExtendedRecorder) -> None:
         """
         Check merge svn functionality. The tests here will actually
         mock the subversion results, so they will work even if subversion is
         not installed. The system_tests will test an actual check out etc.
         """
+        fs.create_file('/bin/svn', create_missing_dirs=True, st_mode=0o755)
+
         svn = Subversion()
         svn.merge("/src", "/dst", "123")
         assert subproc_record.invocations() == [

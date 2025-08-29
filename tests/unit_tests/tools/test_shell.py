@@ -42,10 +42,10 @@ def test_exec_single_arg(subproc_record: ExtendedRecorder) -> None:
     """
     Tests shell script without additional parameters.
     """
-    ksh = Shell("ksh")
+    ksh = Shell("sh")
     ksh.exec("echo")
     assert subproc_record.invocations() == [
-        ['ksh', '-c', 'echo']
+        ['sh', '-c', 'echo']
     ]
 
 
@@ -53,8 +53,8 @@ def test_shell_exec_multiple_args(subproc_record: ExtendedRecorder) -> None:
     """
     Tests shell script with parameters.
     """
-    csh = Shell("csh")
+    csh = Shell("sh")
     csh.exec(["some", "shell", "function"])
     assert subproc_record.invocations() == [
-        ['csh', '-c', 'some', 'shell', 'function']
+        ['sh', '-c', 'some', 'shell', 'function']
     ]
