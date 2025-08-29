@@ -8,15 +8,17 @@ Tests tooling base classes.
 """
 import logging
 from pathlib import Path
+from typing import List
 
-from pytest import raises
+from pyfakefs.fake_filesystem import FakeFilesystem
+from pytest import mark, raises
 from pytest_subprocess.fake_process import FakeProcess
-
-from tests.conftest import ExtendedRecorder, call_list, not_found_callback
 
 from fab.tools.category import Category
 from fab.tools.flags import ProfileFlags
 from fab.tools.tool import CompilerSuiteTool, Tool
+
+from tests.conftest import ExtendedRecorder, call_list
 
 
 def test_constructor() -> None:
@@ -26,7 +28,7 @@ def test_constructor() -> None:
     tool = Tool("gnu", "gfortran", Category.FORTRAN_COMPILER)
     assert str(tool) == "Tool - gnu: gfortran"
     assert tool.exec_name == "gfortran"
-    assert tool.exec_path == Path("gfortran")
+    assert tool.executable == Path("gfortran")
     assert tool.name == "gnu"
     assert tool.category == Category.FORTRAN_COMPILER
     assert isinstance(tool.logger, logging.Logger)
@@ -45,7 +47,7 @@ def test_constructor() -> None:
     assert mytool.name == "MyTool"
     # A path should be converted to a string, since this
     # is later passed to the subprocess command
-    assert mytool.exec_path == Path("/bin/mytool")
+    assert mytool.executable == Path("/bin/mytool")
     assert mytool.category == Category.MISC
 
     # Check that if we specify no category, we get the default:
@@ -62,69 +64,22 @@ def test_tool_set_path() -> None:
     gfortran = Tool("gfortran", "gfortran", Category.FORTRAN_COMPILER)
     gfortran.set_full_path(Path("/usr/bin/gfortran1.2.3"))
     # Exec name should now return the full path
-    assert gfortran.exec_path == Path("/usr/bin/gfortran1.2.3")
+    assert gfortran.executable == Path("/usr/bin/gfortran1.2.3")
     # Path the name of the compiler is unchanged
     assert gfortran.name == "gfortran"
 
 
-def test_is_available(fake_process: FakeProcess) -> None:
+@mark.parametrize('available', [True, False])
+def test_is_available(available: bool, fs: FakeFilesystem) -> None:
     """
-    Tests tool availability checking.
+    Checks ability to detect tool availability.
     """
-    fake_process.register(['gfortran', '--version'], stdout="1.2.3")
-    tool = Tool("gfortran", "gfortran", Category.FORTRAN_COMPILER)
-    assert tool.is_available
-
-
-def test_is_not_available(fake_process: FakeProcess) -> None:
-    """
-    Tests a tool that is not available.
-    """
-    fake_process.register(['gfortran', '--version'],
-                          callback=not_found_callback)
-    tool = Tool("gfortran", "gfortran", Category.FORTRAN_COMPILER)
-    assert not tool.is_available
-
-    # When we try to run something with this tool, we should get
-    # an exception now:
-    with raises(RuntimeError) as err:
-        tool.run("--ops")
-    assert ("Tool 'gfortran' is not available to run '['gfortran', '--ops']"
-            in str(err.value))
-
-
-def test_availability_argument(fake_process: FakeProcess) -> None:
-    """
-    Tests setting the argument used to detect availability.
-    """
-    tool = Tool("ftool", "ftool", Category.FORTRAN_COMPILER,
-                availability_option="am_i_here")
-    assert tool.availability_option == "am_i_here"
-    fake_process.register(['ftool', 'am_i_here'], callback=not_found_callback)
-    assert not tool.check_available()
-
-
-def test_run_missing(fake_process: FakeProcess) -> None:
-    """
-    Tests attempting to run a missing tool.
-    """
-    fake_process.register(['stool', '--ops'], callback=not_found_callback)
-    tool = Tool("some tool", "stool", Category.MISC)
-    with raises(RuntimeError) as err:
-        tool.run("--ops")
-    assert str(err.value).startswith(
-        "Unable to execute command: ['stool', '--ops']"
-    )
-
-    # Check that stdout and stderr is returned
-    fake_process.register(['stool', '--ops'], returncode=1,
-                          stdout="this is stdout",
-                          stderr="this is stderr")
-    tool = Tool("some tool", "stool", Category.MISC)
-    with raises(RuntimeError) as err:
-        tool.run("--ops")
-    assert "this is stdout" in str(err.value)
-    assert "this is stderr" in str(err.value)
+    if available:
+        fs.create_file('/bin/test', create_missing_dirs=True, st_mode=0o755)
+    else:
+        fs.create_dir('/bin')
+    tool = Tool('test', 'test', Category.MISC)
+    assert tool.is_available is available
 
 
 def test_tool_flags_no_profile() -> None:
@@ -167,39 +122,46 @@ class TestToolRun:
     """
     Tests tool run method.
     """
-    def test_no_error_no_args(self, fake_process: FakeProcess) -> None:
+    @mark.parametrize('capture', [True, False])
+    def test_capture(self, capture: bool,
+                     fs: FakeFilesystem,
+                     fake_process: FakeProcess) -> None:
         """
-        Tests run with no aruments.
+        Checks output capture.
         """
-        fake_process.register(['stool'], stdout="123")
+        fs.create_file('/bin/stool', create_missing_dirs=True, st_mode=0o755)
         fake_process.register(['stool'], stdout="123")
         tool = Tool("some tool", "stool", Category.MISC)
-        assert tool.run(capture_output=True) == "123"
-        assert tool.run(capture_output=False) == ""
-        assert call_list(fake_process) == [['stool'], ['stool']]
+        if capture:
+            assert tool.run(capture_output=True) == "123"
+        else:
+            assert tool.run(capture_output=False) == ""
+        assert call_list(fake_process) == [['stool']]
 
+    @mark.parametrize('args', [
+        [],
+        ['a'],
+        ['b', 'c']
+    ])
     def test_run_with_single_args(self,
+                                  args: List[str],
+                                  fs: FakeFilesystem,
                                   subproc_record: ExtendedRecorder) -> None:
         """
-        Tets run with single argument.
+        Checks argument passing.
         """
-        tool = Tool("some tool", "tool", Category.MISC)
-        tool.run("a")
-        assert subproc_record.invocations() == [['tool', 'a']]
+        fs.create_file('/bin/stool', create_missing_dirs=True, st_mode=0o755)
+        tool = Tool("some tool", "stool", Category.MISC)
+        tool.run(args)
+        expected = ['stool']
+        expected.extend(args)
+        assert subproc_record.invocations() == [expected]
 
-    def test_run_with_multiple_args(self,
-                                    subproc_record: ExtendedRecorder) -> None:
-        """
-        Tests run with multiple arguments.
-        """
-        tool = Tool("some tool", "tool", Category.MISC)
-        tool.run(["a", "b"])
-        assert subproc_record.invocations() == [['tool', 'a', 'b']]
-
-    def test_error(self, fake_process: FakeProcess) -> None:
+    def test_error(self, fs: FakeFilesystem, fake_process: FakeProcess) -> None:
         """
         Tests running a failing tool.
         """
+        fs.create_file('/bin/tool', create_missing_dirs=True, st_mode=0o755)
         fake_process.register(['tool'], returncode=1, stdout="Beef.")
         tool = Tool("some tool", "tool", Category.MISC)
         with raises(RuntimeError) as err:
@@ -208,16 +170,15 @@ class TestToolRun:
                                   "['tool']\nBeef.")
         assert call_list(fake_process) == [['tool']]
 
-    def test_error_file_not_found(self, fake_process: FakeProcess) -> None:
+    def test_error_tool_not_found(self, fs: FakeFilesystem) -> None:
         """
         Tests running a missing tool.
         """
-        fake_process.register(['tool'], callback=not_found_callback)
+        fs.create_dir('/bin')
         tool = Tool('some tool', 'tool', Category.MISC)
         with raises(RuntimeError) as err:
             tool.run()
-        assert str(err.value) == "Unable to execute command: ['tool']"
-        assert call_list(fake_process) == [['tool']]
+        assert str(err.value) == "Tool 'some tool' is not available to run ['tool']"
 
 
 def test_suite_tool() -> None:

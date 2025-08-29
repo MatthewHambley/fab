@@ -13,14 +13,15 @@ from subprocess import Popen, run
 from time import sleep
 from typing import List, Tuple
 
+from pyfakefs.fake_filesystem import FakeFilesystem
 from pytest import TempPathFactory, fixture, mark, raises
 from pytest_subprocess.fake_process import FakeProcess
 
-from tests.conftest import (ExtendedRecorder,
-                            arg_list, call_list, not_found_callback)
-
 from fab.tools.category import Category
 from fab.tools.versioning import Fcm, Git, Subversion
+
+from tests.conftest import (ExtendedRecorder,
+                            arg_list, call_list, not_found_callback)
 
 
 class TestGit:
@@ -33,21 +34,17 @@ class TestGit:
         assert git.category == Category.GIT
         assert git.get_flags() == []
 
-    def test_git_check_available(self, fake_process: FakeProcess) -> None:
+    @mark.parametrize('available', [True, False])
+    def test_git_check_available(self, available: bool, fs: FakeFilesystem) -> None:
         """
         Tests availability check.
         """
-        fake_process.register(['git', 'help'], stdout='1.2.3')
-
+        if available:
+            fs.create_file('/bin/git', create_missing_dirs=True, st_mode=0o755)
+        else:
+            fs.create_dir('/bin')
         git = Git()
-        assert git.check_available()
-
-        fake_process.register(['git', 'help'], callback=not_found_callback)
-        assert not git.check_available()
-
-        assert call_list(fake_process) == [
-            ['git', 'help'], ['git', 'help']
-        ]
+        assert git.is_available is available
 
     def test_git_current_commit(self, fake_process: FakeProcess) -> None:
         """

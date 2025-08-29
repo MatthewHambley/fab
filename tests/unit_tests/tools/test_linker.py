@@ -9,16 +9,17 @@ Exercises linker tooling.
 from pathlib import Path
 import warnings
 
+from pyfakefs.fake_filesystem import FakeFilesystem
 from pytest import mark, raises, warns
 from pytest_subprocess.fake_process import FakeProcess
-
-from tests.conftest import ExtendedRecorder, not_found_callback
 
 from fab.build_config import BuildConfig
 from fab.tools.category import Category
 from fab.tools.compiler import CCompiler, FortranCompiler
 from fab.tools.compiler_wrapper import CompilerWrapper, Mpif90
 from fab.tools.linker import Linker
+
+from tests.conftest import ExtendedRecorder, not_found_callback
 
 
 def test_c_linker(stub_c_compiler: CCompiler) -> None:
@@ -78,29 +79,26 @@ def test_linker_openmp(openmp: bool) -> None:
     assert wrapped_linker.openmp == openmp
 
 
-def test_check_available(stub_c_compiler: CCompiler,
+@mark.parametrize('available', [True, False])
+def test_check_available(available: bool,
+                         fs: FakeFilesystem,
                          fake_process: FakeProcess) -> None:
     """
     Tests the is_available functionality when compiler is present.
     """
+    if available:
+        fs.create_file('/bin/scc', create_missing_dirs=True, st_mode=0o755)
+    else:
+        fs.create_dir('/bin')
+    cc = CCompiler("Some C compiler", 'scc', 'test', r'[/d.]+')
     fake_process.register(['scc', '--version'], stdout='1.2.3')
-    linker = Linker(stub_c_compiler)
-    assert linker.check_available()
+    linker = Linker(cc)
+    assert linker.is_available is available
 
     # Then test the usage of a linker wrapper. The linker will call the
     # corresponding function in the wrapper linker:
-    wrapped_linker = Linker(stub_c_compiler, linker=linker)
-    assert wrapped_linker.check_available()
-
-
-def test_check_unavailable(stub_c_compiler: CCompiler,
-                           fake_process: FakeProcess) -> None:
-    """
-    Tests is_available functionality when compiler is missing.
-    """
-    fake_process.register(['scc', '--version'], callback=not_found_callback)
-    linker = Linker(stub_c_compiler)
-    assert linker.check_available() is False
+    wrapped_linker = Linker(cc, linker=linker)
+    assert wrapped_linker.is_available is available
 
 
 # ====================

@@ -8,13 +8,12 @@ Tests holding tools in a tool box.
 """
 import warnings
 
+from pyfakefs.fake_filesystem import FakeFilesystem
 from pytest import raises, warns
-from pytest_subprocess.fake_process import FakeProcess
-
-from tests.conftest import not_found_callback
 
 from fab.tools.category import Category
-from fab.tools.compiler import CCompiler, Gfortran
+from fab.tools.compiler import CCompiler
+from fab.tools.tool import Tool
 from fab.tools.tool_box import ToolBox
 from fab.tools.tool_repository import ToolRepository
 
@@ -77,15 +76,12 @@ def test_tool_replacement() -> None:
         tb.add_tool(mock_compiler1, silent_replace=True)
 
 
-def test_add_unavailable_tool(fake_process: FakeProcess) -> None:
+def test_add_unavailable_tool(fs: FakeFilesystem) -> None:
     """
     Tests unavailable tools are not accepted by toolbox.
     """
-    fake_process.register(['gfortran', '--version'],
-                          callback=not_found_callback)
-
     tb = ToolBox()
-    gfortran = Gfortran()
+    tool = Tool("Some tool", 'stool')
     with raises(RuntimeError) as err:
-        tb.add_tool(gfortran)
-    assert str(err.value).startswith(f"Tool '{gfortran}' is not available")
+        tb.add_tool(tool)
+    assert str(err.value) == f"Tool 'Tool - Some tool: stool' is not available."

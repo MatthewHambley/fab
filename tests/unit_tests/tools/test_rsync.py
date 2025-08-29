@@ -8,12 +8,14 @@ Tests RSync file tree synchronisation tool.
 """
 from pathlib import Path
 
+from pyfakefs.fake_filesystem import FakeFilesystem
+from pytest import mark
 from pytest_subprocess.fake_process import FakeProcess
-
-from tests.conftest import call_list, not_found_callback
 
 from fab.tools.category import Category
 from fab.tools.rsync import Rsync
+
+from tests.conftest import call_list, not_found_callback
 
 
 def test_constructor():
@@ -27,23 +29,18 @@ def test_constructor():
     assert rsync.get_flags() == []
 
 
-def test_check_available(fake_process: FakeProcess) -> None:
+@mark.parametrize('available', [True, False])
+def test_check_available(available: bool, fs: FakeFilesystem) -> None:
     """
     Tests availability checking functionality.
     """
-    fake_process.register(['rsync', '--version'], stdout='1.2.3')
-    fake_process.register(['rsync', '--version'], callback=not_found_callback)
+    if available:
+        fs.create_file('/bin/rsync', create_missing_dirs=True, st_mode=0o755)
+    else:
+        fs.create_dir('/bin')
 
     rsync = Rsync()
-    assert rsync.check_available()
-
-    # Test behaviour if a runtime error happens:
-    assert not rsync.check_available()
-
-    assert call_list(fake_process) == [
-        ['rsync', '--version'],
-        ['rsync', '--version']
-    ]
+    assert rsync.is_available is available
 
 
 def test_rsync_create(fake_process: FakeProcess) -> None:

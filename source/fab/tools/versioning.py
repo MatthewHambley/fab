@@ -28,8 +28,7 @@ class Versioning(Tool, ABC):
         :param exec_name: Executable for this tool.
         :param category: Tool belongs to this category.
         """
-        super().__init__(name, exec_name, category,
-                         availability_option="help")
+        super().__init__(name, exec_name, category)
 
 
 # =============================================================================

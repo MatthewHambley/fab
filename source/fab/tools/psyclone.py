@@ -3,17 +3,17 @@
 # For further details please refer to the file COPYRIGHT
 # which you should have received as part of this distribution
 ##############################################################################
-
-"""This file contains the tool class for PSyclone.
 """
-
+PSyclone tooling.
+"""
 from pathlib import Path
 import re
-from typing import Callable, List, Optional, TYPE_CHECKING, Union
-import warnings
+from typing import Callable, List, Optional, Tuple, Union, TYPE_CHECKING
 
 from fab.tools.category import Category
 from fab.tools.tool import Tool
+
+from source.fab import FabException
 
 if TYPE_CHECKING:
     # TODO 314: see if this circular dependency can be broken
@@ -23,40 +23,42 @@ if TYPE_CHECKING:
 
 
 class Psyclone(Tool):
-    '''This is the base class for `PSyclone`.
-    '''
-
+    """
+    Invokes the PSyclone tool.
+    """
     def __init__(self):
         super().__init__("psyclone", "psyclone", Category.PSYCLONE)
         self._version = None
 
-    def check_available(self) -> bool:
-        '''This function determines if PSyclone is available. Additionally,
-        it established the version, since command line option changes
-        significantly from python 2.5.0 to the next release.
-        '''
+    @property
+    def is_available(self) -> bool:
+        """
+        Determines PSyclone availability.
 
-        # First get the version (and confirm that PSyclone is installed):
-        try:
+        In addition, it also determines the version since a number of
+         behaviours are version dependent.
+        """
+        available = super().is_available
+
+        if available and self._version is None:
             version_output = self.run(["--version"], capture_output=True)
-        except RuntimeError:
-            # Something is wrong, report as not available
-            return False
+            pattern = r"PSyclone version: (\d[\d.]+\d)"
+            match = re.search(pattern, version_output)
+            if match:
+                self._version = tuple(int(x) for x in match.group(1).split('.'))
+            else:
+                raise FabException(
+                    f"Unexpected version information for PSyclone: "
+                    f"'{version_output}'."
+                )
 
-        # Search for the version info:
-        exp = r"PSyclone version: (\d[\d.]+\d)"
-        matches = re.search(exp, version_output)
-        if not matches:
-            warnings.warn(f"Unexpected version information for PSyclone: "
-                          f"'{version_output}'.")
-            # If we don't recognise the version number, something is wrong
-            return False
+        return available and (self._version is not None)
 
-        # Now convert the version info to integer. The regular expression
-        # match guarantees that we have integer numbers now:
-        self._version = tuple(int(x) for x in matches.groups()[0].split('.'))
-
-        return True
+    @property
+    def version(self) -> Tuple[int, ...]:
+        if self._version is None:
+            _ = self.is_available
+        return self._version
 
     def process(self,
                 config: "BuildConfig",
@@ -88,9 +90,13 @@ class Psyclone(Tool):
             for PSyclone
         :param kernel_roots: optional directories with kernels.
         '''
-
-        if not self.is_available:
-            raise RuntimeError("PSyclone is not available.")
+        try:
+            _ =  self.is_available
+        except RuntimeError as ex:
+            raise RuntimeError(
+                "PSyclone present but version unobtainable."
+                " Is installation broken?"
+            ) from ex
 
         # Convert the old style API nemo to be empty
         if api and api.lower() == "nemo":
@@ -125,7 +131,7 @@ class Psyclone(Tool):
         # transformation tool only, so calling PSyclone without api is
         # actually valid.
         if api:
-            if self._version >= (3, 0, 0):
+            if self.version >= (3, 0, 0):
                 api_param = "--psykal-dsl"
                 # Mapping from old names to new names:
                 mapping = {"dynamo0.3": "lfric",
@@ -145,7 +151,7 @@ class Psyclone(Tool):
             # Make mypy happy - we tested above that transformed_file is
             # specified when no api is specified.
             assert transformed_file
-            if self._version >= (3, 0, 0):
+            if self.version >= (3, 0, 0):
                 # New version: no API, parameter, but -o for output name:
                 parameters.extend(["-o", transformed_file])
             else:

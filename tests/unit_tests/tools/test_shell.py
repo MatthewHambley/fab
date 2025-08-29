@@ -6,12 +6,14 @@
 """
 Tests Shell tools.
 """
+from pyfakefs.fake_filesystem import FakeFilesystem
+from pytest import mark
 from pytest_subprocess.fake_process import FakeProcess
-
-from tests.conftest import ExtendedRecorder, call_list, not_found_callback
 
 from fab.tools.category import Category
 from fab.tools.shell import Shell
+
+from tests.conftest import ExtendedRecorder, call_list, not_found_callback
 
 
 def test_constructor() -> None:
@@ -24,23 +26,17 @@ def test_constructor() -> None:
     assert bash.exec_name == "nish"
 
 
-def test_check_available(fake_process: FakeProcess) -> None:
+@mark.parametrize('available', [True, False])
+def test_check_available(available: bool, fs: FakeFilesystem) -> None:
     """
     Tests availability functionality.
     """
-    fake_process.register(["nish", "-c", "echo hello"])
-    fake_process.register(["nish", "-c", "echo hello"], callback=not_found_callback)
-
+    if available:
+        fs.create_file('/bin/nish', create_missing_dirs=True, st_mode=0o755)
+    else:
+        fs.create_dir('/bin')
     shell = Shell("nish")
-    assert shell.check_available()
-
-    # Test behaviour if a runtime error happens:
-    assert not shell.check_available()
-
-    assert call_list(fake_process) == [
-        ['nish', '-c', 'echo hello'],
-        ['nish', '-c', 'echo hello']
-    ]
+    assert shell.is_available is available
 
 
 def test_exec_single_arg(subproc_record: ExtendedRecorder) -> None:

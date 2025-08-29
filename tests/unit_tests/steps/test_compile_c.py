@@ -9,6 +9,7 @@ Exercises the compiler step.
 from pathlib import Path
 from unittest.mock import Mock
 
+from pyfakefs.fake_filesystem import FakeFilesystem
 from pytest import fixture, raises, warns
 from pytest_subprocess.fake_process import FakeProcess
 
@@ -71,7 +72,7 @@ class TestCompileC:
     '''Test various functionalities of the C compilation step.'''
 
     def test_vanilla(self, content,
-                     fake_process: FakeProcess) -> None:
+                     fs: FakeFilesystem, fake_process: FakeProcess) -> None:
         """
         Tests correct use of compiler.
         """
@@ -91,9 +92,8 @@ class TestCompileC:
                                                   '-Dhello'])])
 
         # ensure it created the correct artefact collection
-        assert config.artefact_store[ArtefactSet.OBJECT_FILES] == {
-            None: {config.prebuild_folder / 'foo.18f203cab.o', }
-        }
+        assert str(dict(config.artefact_store[ArtefactSet.OBJECT_FILES])) \
+               == str({None: {config.prebuild_folder / 'foo.18f203cab.o', }})
 
     def test_exception_handling(self, content,
                                 fake_process: FakeProcess) -> None:

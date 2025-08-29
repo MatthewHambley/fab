@@ -17,6 +17,8 @@ from fab.steps.grab.fcm import fcm_export
 from fab.steps.grab.folder import grab_folder
 from fab.tools.tool_box import ToolBox
 
+from source.fab.tools.tool_repository import ToolRepository
+
 
 class TestGrabFolder:
     """
@@ -34,6 +36,14 @@ class TestGrabFolder:
         """
         Tests file directory grabbery.
         """
+        # ToolRepository fails if there are no Fortran compilers within, even
+        # when they are unused.
+        #
+        ToolRepository._singleton = None
+        fs.create_file('/bin/gfortran', create_missing_dirs=True, st_mode=0o755)
+        fake_process.register(['gfortran', '--version'], stdout='GNU Fortran (foo) 1.2.3')
+
+        fs.create_file('/bin/rsync', create_missing_dirs=True, st_mode=0o755)
         version_command = ['rsync', '--version']
         fake_process.register(version_command, stdout='1.2.3')
         grab_command = ['rsync', '--times', '--links', '--stats',
@@ -58,6 +68,14 @@ class TestGrabFcm:
         """
         Tests no revision, "head of branch" grab.
         """
+        # ToolRepository fails if there are no Fortran compilers within, even
+        # when they are unused.
+        #
+        ToolRepository._singleton = None
+        fs.create_file('/bin/gfortran', create_missing_dirs=True, st_mode=0o755)
+        fake_process.register(['gfortran', '--version'], stdout='GNU Fortran (foo) 1.2.3')
+
+        fs.create_file('/bin/fcm', create_missing_dirs=True, st_mode=0o755)
         help_command = ['fcm', 'help']
         fake_process.register(help_command)
         grab_command = ['fcm', 'export', '--force', '/www.example.com/bar',
@@ -75,12 +93,19 @@ class TestGrabFcm:
                        dst_label='bar')
         assert fake_process.call_count(grab_command) == 1
 
-    def test_revision(self, fs: FakeFilesystem, fake_process: FakeProcess) -> None:
+    def test_revision(self, fs: FakeFilesystem,
+                      fake_process: FakeProcess) -> None:
         """
         Tests grabbing a specific revision.
         """
-        help_command = ['fcm', 'help']
-        fake_process.register(help_command)
+        # ToolRepository fails if there are no Fortran compilers within, even
+        # when they are unused.
+        #
+        ToolRepository._singleton = None
+        fs.create_file('/bin/gfortran', create_missing_dirs=True, st_mode=0o755)
+        fake_process.register(['gfortran', '--version'], stdout='GNU Fortran (foo) 1.2.3')
+
+        fs.create_file('/bin/fcm', create_missing_dirs=True, st_mode=0o755)
         grab_command = ['fcm', 'export', '--force', '--revision', '42',
                         'http://www.example.com/bar',
                         '/fab/project/source/bar']

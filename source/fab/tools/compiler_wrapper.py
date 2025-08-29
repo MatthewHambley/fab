@@ -39,8 +39,12 @@ class CompilerWrapper(Compiler):
             category=self._compiler.category,
             suite=self._compiler.suite,
             version_regex=self._compiler._version_regex,
-            mpi=mpi,
-            availability_option=self._compiler.availability_option)
+            mpi=mpi)
+
+    @property
+    def is_available(self) -> bool:
+        this_availability = super().is_available
+        return this_availability and self._compiler.is_available
 
     @property
     def compiler(self) -> Compiler:

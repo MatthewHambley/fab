@@ -8,10 +8,9 @@ Tests the compiler wrapper implementation.
 """
 from pathlib import Path
 
-from pytest import raises, warns
+from pyfakefs.fake_filesystem import FakeFilesystem
+from pytest import mark, raises, warns
 from pytest_subprocess.fake_process import FakeProcess
-
-from tests.conftest import ExtendedRecorder, call_list, not_found_callback
 
 from fab.build_config import BuildConfig
 from fab.tools.category import Category
@@ -19,6 +18,8 @@ from fab.tools.compiler import CCompiler, FortranCompiler
 from fab.tools.compiler_wrapper import (CompilerWrapper,
                                         CrayCcWrapper, CrayFtnWrapper,
                                         Mpicc, Mpif90)
+
+from tests.conftest import ExtendedRecorder, call_list, not_found_callback
 
 
 def test_compiler_getter(stub_c_compiler: CCompiler) -> None:
@@ -31,11 +32,13 @@ def test_compiler_getter(stub_c_compiler: CCompiler) -> None:
 
 
 def test_version_and_caching(stub_c_compiler: CCompiler,
+                             fs: FakeFilesystem,
                              fake_process: FakeProcess) -> None:
     """
     Tests that the compiler wrapper reports the right version number
     from the actual compiler.
     """
+    fs.create_file('/bin/mpicc', create_missing_dirs=True, st_mode=0o755)
     fake_process.register(['mpicc', '--version'], stdout='1.2.3')
     mpicc = Mpicc(stub_c_compiler)
 
@@ -49,46 +52,32 @@ def test_version_and_caching(stub_c_compiler: CCompiler,
     ]
 
 
-def test_compiler_is_available_ok(stub_c_compiler: CCompiler,
-                                  fake_process: FakeProcess) -> None:
+@mark.parametrize('c_avail, m_avail, expected', [
+    (False, False, False)
+])
+def test_is_available(c_avail: bool, m_avail: bool, expected: bool,
+                      fs: FakeFilesystem) -> None:
     """
-    Tests availability check when everything is okay.
+    Checks availability testing.
     """
-    fake_process.register(['scc', '--version'], stdout='1.2.3')
-    fake_process.register(['mpicc', '--version'], stdout='1.2.3')
-    mpicc = Mpicc(stub_c_compiler)
+    if c_avail:
+        fs.create_file('/bin/scc', create_missing_dirs=True, st_mode=0o755)
+    if m_avail:
+        fs.create_file('/bin/mpicc', create_missing_dirs=True, st_mode=0o755)
+    cc = CCompiler("Some C compiler", 'scc', 'test', r'[./d]+')
+    mpicc = Mpicc(cc)
 
     # Just make sure we get the right object:
     assert isinstance(mpicc, CompilerWrapper)
-    assert mpicc.is_available is True
+    assert mpicc.is_available is expected
 
 
-def test_compiler_is_available_no_version(stub_c_compiler: CCompiler,
-                                          fake_process: FakeProcess) -> None:
-    """
-    Make sure a compiler that does not return a valid version
-    is marked as not available.
-    """
-
-    # Test if the wrapped compiler cannot be executed, but the wrapper can.
-    # In this case, the wrapper should be marked as available:
-    fake_process.register(['scc', '--version'], callback=not_found_callback)
-    fake_process.register(['mpicc', '--version'], stdout='1.2.3')
-    mpicc = Mpicc(stub_c_compiler)
-    assert mpicc.is_available
-
-    # Create a new instance (since the above one is marked as available),
-    # make the wrapped compiler available, but not the wrapper:
-    mpicc = Mpicc(stub_c_compiler)
-    fake_process.register(['scc', '--version'], stdout='1.2.3')
-    fake_process.register(['mpicc', '--version'], callback=not_found_callback)
-    assert not mpicc.is_available
-
-
-def test_compiler_hash(fake_process: FakeProcess) -> None:
+def test_compiler_hash(fs: FakeFilesystem, fake_process: FakeProcess) -> None:
     """
     Test the hash functionality.
     """
+    fs.create_file('/bin/tcc', create_missing_dirs=True, st_mode=0o755)
+    fs.create_file('/bin/mpicc', create_missing_dirs=True, st_mode=0o755)
     fake_process.register(['tcc', '--version'], stdout='5.6.7')
     fake_process.register(['mpicc', '--version'], stdout='5.6.7')
     cc1 = CCompiler('test C compiler', 'tcc', 'test',
@@ -168,12 +157,14 @@ def test_module_output(stub_fortran_compiler: FortranCompiler,
 
 def test_fortran_with_add_args(stub_fortran_compiler: FortranCompiler,
                                stub_configuration: BuildConfig,
-                               subproc_record: ExtendedRecorder) -> None:
+                               subproc_record: ExtendedRecorder,
+                               fs: FakeFilesystem) -> None:
     """
     Tests that additional arguments are handled as expected in
     a wrapper. Also make sure that the actual compiler wrapper (mpif90)
     is called, not gfortran.'''
     """
+    fs.create_file('/bin/mpif90', create_missing_dirs=True, st_mode=0o755)
     mpif90 = Mpif90(stub_fortran_compiler)
     mpif90.set_module_output_path(Path('/module_out'))
 
@@ -191,11 +182,13 @@ def test_fortran_with_add_args(stub_fortran_compiler: FortranCompiler,
 
 def test_fortran_unnecessary_openmp(stub_fortran_compiler: FortranCompiler,
                                     stub_configuration: BuildConfig,
-                                    subproc_record: ExtendedRecorder) -> None:
+                                    subproc_record: ExtendedRecorder,
+                                    fs: FakeFilesystem) -> None:
     """
     Tests that additional arguments are handled as expected in
     a wrapper if also the openmp flags are specified.
     """
+    fs.create_file('/bin/mpif90', create_missing_dirs=True, st_mode=0o755)
     mpif90 = Mpif90(stub_fortran_compiler)
     mpif90.set_module_output_path(Path('/module_out'))
 
@@ -214,12 +207,14 @@ def test_fortran_unnecessary_openmp(stub_fortran_compiler: FortranCompiler,
 
 def test_c_with_add_args(stub_c_compiler: CCompiler,
                          stub_configuration: BuildConfig,
-                         subproc_record: ExtendedRecorder) -> None:
+                         subproc_record: ExtendedRecorder,
+                         fs: FakeFilesystem) -> None:
     """
     Tests that additional arguments are handled as expected in a
     compiler wrapper. Also verify that requesting Fortran-specific options
     like syntax-only with the C compiler raises a runtime error.
     """
+    fs.create_file('/bin/mpicc', create_missing_dirs=True, st_mode=0o755)
     mpicc = Mpicc(stub_c_compiler)
     # Normal invoke of the C compiler, make sure add_flags are
     # passed through:
@@ -254,11 +249,13 @@ def test_c_with_add_args(stub_c_compiler: CCompiler,
 
 def test_flags_independent(stub_c_compiler: CCompiler,
                            stub_configuration: BuildConfig,
-                           subproc_record: ExtendedRecorder) -> None:
+                           subproc_record: ExtendedRecorder,
+                           fs: FakeFilesystem) -> None:
     """
     Tests that flags set in the base compiler will be accessed in the
     wrapper, but not the other way round.
     """
+    fs.create_file('/bin/mpicc', create_missing_dirs=True, st_mode=0o755)
     wrapper = Mpicc(stub_c_compiler)
     assert stub_c_compiler.get_flags() == []
     assert wrapper.get_flags() == []
@@ -286,9 +283,12 @@ def test_flags_independent(stub_c_compiler: CCompiler,
 
 def test_compiler_wrapper_flags_with_add_arg(stub_c_compiler: CCompiler,
                                              stub_configuration: BuildConfig,
-                                             subproc_record: ExtendedRecorder):
-    '''Tests that flags set in the base compiler will be accessed in the
-    wrapper if also additional flags are specified.'''
+                                             subproc_record: ExtendedRecorder,
+                                             fs: FakeFilesystem):
+    """
+    Checks compiler argument propagation.
+    """
+    fs.create_file('/bin/mpicc', create_missing_dirs=True, st_mode=0o755)
     mpicc = Mpicc(stub_c_compiler)
     stub_c_compiler.define_profile("default", inherit_from="")
     mpicc.define_profile("default", inherit_from="")
@@ -315,11 +315,13 @@ def test_compiler_wrapper_flags_with_add_arg(stub_c_compiler: CCompiler,
 
 def test_args_without_add_arg(stub_c_compiler: CCompiler,
                               stub_configuration: BuildConfig,
-                              subproc_record: ExtendedRecorder) -> None:
+                              subproc_record: ExtendedRecorder,
+                              fs: FakeFilesystem) -> None:
     """
     Tests that flags set in the base compiler will be accessed in the
     wrapper if no additional flags are specified.
     """
+    fs.create_file('/bin/wrp', create_missing_dirs=True, st_mode=0o755)
     wrapper = CompilerWrapper('wrapper', 'wrp', compiler=stub_c_compiler)
 
     stub_c_compiler.add_flags(["-a", "-b"])

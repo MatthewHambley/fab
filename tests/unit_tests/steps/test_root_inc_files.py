@@ -56,7 +56,7 @@ class TestRootIncFiles:
         """
         Tests files already in output directory not copied.
         """
-        Path('/foo/source').mkdir(parents=True)
+        fs.create_dir('/foo/source')
         Path('/foo/source/bar.inc').write_text("An include file.")
 
         config = BuildConfig('proj', stub_tool_box, fab_workspace=Path('/fab'))
@@ -84,9 +84,9 @@ class TestRootIncFiles:
         # So we need to ignore /tmp:
         filetree: List[Path] = []
         for path, _, files in os_walk('/'):
+            if path in ('/bin', '/var'):
+                continue
             for file in files:
-                if file == 'tmp':
-                    continue
                 filetree.append(Path(path) / file)
         assert sorted(filetree) == [Path('/fab/proj/build_output/bar.inc'),
                                     Path('/foo/source/bar.inc')]

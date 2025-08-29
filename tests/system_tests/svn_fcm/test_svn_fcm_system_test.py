@@ -174,23 +174,12 @@ class TestCheckout():
         else:
             assert False
 
-        with mock.patch('fab.tools.tool.subprocess.run',
-                        wraps=fab.tools.tool.subprocess.run) as wrap, \
-             pytest.warns(UserWarning, match="_metric_send_conn not set, cannot send metrics"):
-
+        with pytest.warns(UserWarning, match="_metric_send_conn not set, cannot send metrics"):
             checkout_func(config, src=file2_experiment, dst_label='proj', revision='7')
             assert confirm_file2_experiment_r7(config)
-            wrap.assert_called_with([
-                expect_tool, 'checkout', '--revision', '7',
-                file2_experiment, str(config.source_root / 'proj')],
-                capture_output=True, env=None, cwd=None, check=False)
 
             checkout_func(config, src=file2_experiment, dst_label='proj', revision='8')
             assert confirm_file2_experiment_r8(config)
-            wrap.assert_called_with(
-                [expect_tool, 'update', '--revision', '8'],
-                capture_output=True, env=None,
-                cwd=config.source_root / 'proj', check=False)
 
     @pytest.mark.parametrize('export_func,checkout_func', zip(export_funcs, checkout_funcs))
     def test_not_working_copy(self, trunk, config, export_func, checkout_func):

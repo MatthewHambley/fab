@@ -8,11 +8,13 @@ Tests 'ar' archiver tool.
 """
 from pathlib import Path
 
+from pyfakefs.fake_filesystem import FakeFilesystem
+from pytest import mark
 from pytest_subprocess.fake_process import FakeProcess
 
-from tests.conftest import ExtendedRecorder, call_list
-
 from fab.tools import Category, Ar
+
+from tests.conftest import ExtendedRecorder, call_list
 
 
 def test_constructor() -> None:
@@ -26,29 +28,17 @@ def test_constructor() -> None:
     assert ar.get_flags() == []
 
 
-def test_check_available(subproc_record: ExtendedRecorder) -> None:
+@mark.parametrize('available', [True, False])
+def test_is_available(available: bool, fs: FakeFilesystem) -> None:
     """
     Tests availability functionality.
     """
+    if available:
+        fs.create_file('/bin/ar', create_missing_dirs=True, st_mode=0o755)
+    else:
+        fs.create_dir('/bin')
     ar = Ar()
-    assert ar.check_available()
-    assert subproc_record.invocations() == [["ar", "--version"]]
-    assert subproc_record.extras() == [{'cwd': None,
-                                        'env': None,
-                                        'stdout': None,
-                                        'stderr': None}]
-
-
-def test_check_unavailable(fake_process: FakeProcess) -> None:
-    """
-    Tests availability failure.
-    """
-    fake_process.register(['ar', '--version'],
-                          returncode=1,
-                          stderr="Something went wrong.")
-    ar = Ar()
-    assert not ar.check_available()
-    assert call_list(fake_process) == [["ar", "--version"]]
+    assert ar.is_available is available
 
 
 def test_ar_create(subproc_record: ExtendedRecorder) -> None:

@@ -7,18 +7,23 @@
 Tests ToolBox class.
 """
 from pathlib import Path
+from typing import Type
+
+from pyfakefs.fake_filesystem import FakeFilesystem
 from pytest import mark, raises
-from pytest_subprocess.fake_process import FakeProcess
 
 from fab.tools.ar import Ar
 from fab.tools.category import Category
 from fab.tools.compiler import FortranCompiler, Gcc, Gfortran, Ifort
 from fab.tools.compiler_wrapper import Mpif90
+from fab.tools.tool import Tool
 from fab.tools.tool_repository import ToolRepository
 
 
 def test_tool_repository_get_singleton_new():
-    '''Tests the singleton behaviour.'''
+    """
+    Tests the singleton behaviour.
+    """
     ToolRepository._singleton = None
     tr1 = ToolRepository()
     tr2 = ToolRepository()
@@ -29,30 +34,40 @@ def test_tool_repository_get_singleton_new():
 
 
 def test_tool_repository_constructor():
-    '''Tests the ToolRepository constructor.'''
+    """
+    Tests the ToolRepository constructor.
+    """
     tr = ToolRepository()
     assert Category.C_COMPILER in tr
     assert Category.FORTRAN_COMPILER in tr
 
 
-def test_tool_repository_get_tool():
-    '''Tests get_tool.'''
+@mark.parametrize('fortran, expected', [
+    ('gfortran', Gfortran),
+    ('ifort', Ifort)
+])
+def test_tool_repository_get_tool(fortran: str, expected: Type, fs: FakeFilesystem):
+    """
+    Checks basic "get tool" behaviour.
+    """
+    fs.create_file('/bin/' + fortran, create_missing_dirs=True, st_mode=0o755)
+    ToolRepository._singleton = None
     tr = ToolRepository()
-    gfortran = tr.get_tool(Category.FORTRAN_COMPILER, "gfortran")
-    assert isinstance(gfortran, Gfortran)
-
-    ifort = tr.get_tool(Category.FORTRAN_COMPILER, "ifort")
-    assert isinstance(ifort, Ifort)
+    gfortran = tr.get_tool(Category.FORTRAN_COMPILER, fortran)
+    assert isinstance(gfortran, expected)
 
 
-def test_tool_repository_get_tool_with_exec_name(stub_fortran_compiler):
-    '''Tests get_tool when the name of the executable is specified, e.g.
-    mpif90 (instead of the Fab name mpif90-gfortran etc).
+def test_tool_repository_get_tool_with_exec_name(stub_fortran_compiler,
+                                                 fs: FakeFilesystem) -> None:
+    """
+    Checks tool retrieval using executable name.
 
-    '''
+    As opposed to Fab identifier (e.g. mpif90-gfortran).
+
+    Todo: Messing with private state is bad.
+    """
+    ToolRepository._singleton = None
     tr = ToolRepository()
-    # Keep a copy of gfortran for later
-    gfortran = tr.get_tool(Category.FORTRAN_COMPILER, "gfortran")
 
     # First add just one unavailable Fortran compiler and an mpif90 wrapper:
     tr[Category.FORTRAN_COMPILER] = []
@@ -61,39 +76,46 @@ def test_tool_repository_get_tool_with_exec_name(stub_fortran_compiler):
     tr.add_tool(mpif90)
 
     # If mpif90 is not available, an error is raised:
-    mpif90._is_available = False
     try:
         tr.get_tool(Category.FORTRAN_COMPILER, "mpif90")
     except KeyError as err:
         assert "Unknown tool 'mpif90' in category" in str(err)
 
     # When using the exec name, the compiler must be available:
-    mpif90._is_available = True
+    fs.create_file('/bin/mpif90', create_missing_dirs=True, st_mode=0o755)
+    mpif90._is_available = None
     f90 = tr.get_tool(Category.FORTRAN_COMPILER, "mpif90")
     assert f90 is mpif90
 
-    # Now add mpif90-gfortran, set mpif90-gfortran as available,
-    # and mpif90-stub-fortran as unavailable. We need to make sure
-    # we then get mpif90-gfortran:
-    mpif90_gfortran = Mpif90(gfortran)
-    tr.add_tool(mpif90_gfortran)
-    mpif90._is_available = False
-    mpif90_gfortran._is_available = True
+    # Now add a different, available,  mpif90 and make mpif90-stub-fortran
+    # unavailable. We need to make sure we then get mpif90-gfortran:
+    fs.remove('/bin/sfc')
+    stub_fortran_compiler._is_available = None
+    fs.create_file('/bin/tfc', create_missing_dirs=True, st_mode=0o755)
+    fc_new = FortranCompiler("Test Fortran", 'tfc', 'test',
+                             version_regex=r'([\d.]+)')
+    tr.add_tool(fc_new)
+    mpif90_new = Mpif90(fc_new)
+    tr.add_tool(mpif90_new)
     f90 = tr.get_tool(Category.FORTRAN_COMPILER, "mpif90")
-    assert f90 is mpif90_gfortran
+    assert f90 is mpif90_new
 
     # Then verify using the full path
+    fs.remove('/bin/mpif90')
+    fs.create_file('/some/where/mpif90', create_missing_dirs=True, st_mode=0o755)
     f90 = tr.get_tool(Category.FORTRAN_COMPILER, "/some/where/mpif90")
-    assert f90 is mpif90_gfortran
-    assert f90.exec_path == Path("/some/where/mpif90")
+    assert f90 is mpif90_new
+    assert f90.executable == Path("/some/where/mpif90")
     # Reset the repository, since this test messed up the compilers.
     ToolRepository._singleton = None
 
 
-def test_get_tool_error():
+def test_get_tool_error(fs: FakeFilesystem):
     """
-    Tests error handling during tet_tool.
+    Checks tool getting error handling.
     """
+    fs.create_dir('/bin')
+    ToolRepository._singleton = None
     tr = ToolRepository()
     with raises(KeyError) as err:
         tr.get_tool("unknown-category", "something")
@@ -105,8 +127,14 @@ def test_get_tool_error():
             in str(err.value))
 
 
-def test_get_default() -> None:
-    '''Tests get_default.'''
+def test_get_default(fs: FakeFilesystem) -> None:
+    """
+    Checks default compilers.
+    """
+    fs.create_file('/bin/gfortran', create_missing_dirs=True, st_mode=0o755)
+    fs.create_file('/bin/gcc', create_missing_dirs=True, st_mode=0o755)
+    fs.create_file('/bin/ar', create_missing_dirs=True, st_mode=0o755)
+    ToolRepository._singleton = None
     tr = ToolRepository()
     gfortran = tr.get_default(Category.FORTRAN_COMPILER, mpi=False,
                               openmp=False)
@@ -211,14 +239,13 @@ def test_get_default_error_missing_openmp_compiler(monkeypatch) -> None:
 @mark.parametrize('category', [Category.C_COMPILER,
                                Category.FORTRAN_COMPILER,
                                Category.LINKER])
-def test_default_gcc_suite(category, fake_process: FakeProcess) -> None:
+def test_default_gcc_suite(category, fs: FakeFilesystem) -> None:
     """
     Tests setting default suite to "GCC" produces correct tools.
     """
-    fake_process.register(['gcc', '--version'], stdout='gcc (foo) 1.2.3')
-    fake_process.register(['gfortran', '--version'],
-                          stdout='GNU Fortran (foo) 1.2.3')
-
+    fs.create_file('/bin/gcc', create_missing_dirs=True, st_mode=0o755)
+    fs.create_file('/bin/gfortran', create_missing_dirs=True, st_mode=0o755)
+    ToolRepository._singleton = None
     tr = ToolRepository()
     tr.set_default_compiler_suite('gnu')
     def_tool = tr.get_default(category, mpi=False, openmp=False)
@@ -228,14 +255,13 @@ def test_default_gcc_suite(category, fake_process: FakeProcess) -> None:
 @mark.parametrize('category', [Category.C_COMPILER,
                                Category.FORTRAN_COMPILER,
                                Category.LINKER])
-def test_default_intel_suite(category, fake_process: FakeProcess) -> None:
+def test_default_intel_suite(category, fs: FakeFilesystem) -> None:
     """
     Tests setting default suite to "classic-intel" produces correct tools.
     """
-    fake_process.register(['icc', '--version'], stdout='icc (ICC) 1.2.3 foo')
-    fake_process.register(['ifort', '--version'],
-                          stdout='ifort (IFORT) 1.2.3 foo')
-
+    fs.create_file('/bin/icc', create_missing_dirs=True, st_mode=0o755)
+    fs.create_file('/bin/ifort', create_missing_dirs=True, st_mode=0o755)
+    ToolRepository._singleton = None
     tr = ToolRepository()
     tr.set_default_compiler_suite('intel-classic')
     def_tool = tr.get_default(category, mpi=False, openmp=False)
@@ -246,6 +272,7 @@ def test_default_suite_unknown() -> None:
     """
     Tests handling if a compiler suite is selected that does not exist.
     """
+    ToolRepository._singleton = None
     repo = ToolRepository()
     with raises(RuntimeError) as err:
         repo.set_default_compiler_suite("does-not-exist")
@@ -253,14 +280,11 @@ def test_default_suite_unknown() -> None:
                               "the suite 'does-not-exist'.")
 
 
-def test_no_tool_available(fake_process: FakeProcess) -> None:
+def test_no_tool_available(fs: FakeFilesystem) -> None:
     """
     Tests error handling if no tool is available.
     """
-    # All attempted subprocesses fail.
-    #
-    fake_process.register([FakeProcess.any()], returncode=1)
-
+    ToolRepository._singleton = None
     tr = ToolRepository()
     tr.set_default_compiler_suite("gnu")
 
@@ -270,17 +294,18 @@ def test_no_tool_available(fake_process: FakeProcess) -> None:
                               "'sh'.")
 
 
-def test_tool_repository_full_path(fake_process: FakeProcess) -> None:
-    '''Tests that a user can request a tool with a full path,
-    in which case the right tool should be returned with an updated
-    exec name that uses the path.
-    '''
-    tr = ToolRepository()
-    gfortran = tr.get_tool(Category.FORTRAN_COMPILER, "/usr/bin/gfortran")
-    assert isinstance(gfortran, Gfortran)
-    assert gfortran.name == "gfortran"
-    assert gfortran.exec_name == "gfortran"
-    assert gfortran.exec_path == Path("/usr/bin/gfortran")
+def test_tool_repository_full_path(fs: FakeFilesystem) -> None:
+    """
+    Checks full path request.
 
-    fake_process.register(['/usr/bin/gfortran', 'a'])
-    gfortran.run("a")
+    The appropriate tool should be returned with updated executable path.
+    """
+    fs.create_file('/opt/test/bin/ttool', create_missing_dirs=True, st_mode=0o755)
+    ToolRepository._singleton = None
+    tr = ToolRepository()
+    tr.add_tool(Tool("Test tool", 'ttool', category=Category.MISC))
+    tool = tr.get_tool(Category.MISC, '/opt/test/bin/ttool')
+    assert isinstance(tool, Tool)
+    assert tool.name == "Test tool"
+    assert tool.exec_name == "ttool"
+    assert tool.executable == Path("/opt/test/bin/ttool")

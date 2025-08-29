@@ -193,10 +193,11 @@ class ToolRepository(dict):
         # tool returned might be mpif90-ifort when the user has actually
         # mpif90-gfortran available)
         for tool in all_tools:
-            if tool.exec_name == path_name.name and tool.is_available:
+            if tool.exec_name == path_name.name:
                 if path_name.is_absolute():
                     tool.set_full_path(path_name)
-                return tool
+                if tool.is_available:
+                    return tool
 
         raise KeyError(f"Unknown tool '{name}' in category '{category}' "
                        f"in ToolRepository.")

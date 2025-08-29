@@ -25,10 +25,8 @@ class Preprocessor(Tool):
     '''
 
     def __init__(self, name: str, exec_name: Union[str, Path],
-                 category: Category,
-                 availability_option: Optional[str] = None):
-        super().__init__(name, exec_name, category,
-                         availability_option=availability_option)
+                 category: Category):
+        super().__init__(name, exec_name, category)
         self._version = None
 
     def preprocess(self, input_file: Path, output_file: Path,
@@ -74,5 +72,4 @@ class Fpp(Preprocessor):
     def __init__(self):
         # fpp -V prints version information, but then hangs (i.e. reading
         # from stdin), so use -what to see if it is available
-        super().__init__("fpp", "fpp", Category.FORTRAN_PREPROCESSOR,
-                         availability_option="-what")
+        super().__init__("fpp", "fpp", Category.FORTRAN_PREPROCESSOR)

@@ -30,15 +30,9 @@ class TestArchiveObjects:
         """
         As used when archiving before linking exes.
         """
-        # Make sure that ar has not already been tested
-        # (in which case the --version call will not be executed)
-        ar = ToolRepository().get_tool(Category.AR, "ar")
-        ar._is_available = None
-        version_command = ['ar', '--version']
-        fake_process.register(version_command, stdout='1.2.3')
-        commands = []
-        commands.append(version_command)
+        fs.create_file('/bin/ar', create_missing_dirs=True, st_mode=0o755)
         targets = ['prog1', 'prog2']
+        commands = []
         for target in targets:
             ar_command = ['ar', 'cr', f'/fab/proj/build_output/{target}.a',
                           f'{target}.o', 'util.o']
@@ -72,11 +66,10 @@ class TestArchiveObjects:
         """
         # Make sure that ar has not already been tested
         # (in which case the --version call will not be executed)
+        fs.create_file('/bin/ar', create_missing_dirs=True, st_mode=0o755)
         ar = ToolRepository().get_tool(Category.AR, "ar")
         ar._is_available = None
 
-        help_command = ['ar', '--version']
-        fake_process.register(help_command, stdout='1.0.0')
         ar_command = ['ar', 'cr', '/fab/proj/build_output/mylib.a',
                       'util1.o', 'util2.o']
         fake_process.register(ar_command)
@@ -92,7 +85,7 @@ class TestArchiveObjects:
             archive_objects(config=config,
                             output_fpath=config.build_output / 'mylib.a')
 
-        assert call_list(fake_process) == [help_command, ar_command]
+        assert call_list(fake_process) == [ar_command]
 
         # ensure the correct artefacts were created
         assert config.artefact_store[ArtefactSet.OBJECT_ARCHIVES] == {

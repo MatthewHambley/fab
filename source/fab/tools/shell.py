@@ -24,9 +24,7 @@ class Shell(Tool):
     :name: the path to the script to run.
     '''
     def __init__(self, name: str):
-        super().__init__(name=name, exec_name=name,
-                         availability_option=["-c", "echo hello"],
-                         category=Category.SHELL)
+        super().__init__(name=name, executable=name, category=Category.SHELL)
 
     def exec(self, command: Union[str, List[Union[Path, str]]]) -> str:
         '''Executes the specified command.

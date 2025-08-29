@@ -8,10 +8,9 @@ Exercises executable linkage step.
 """
 from pathlib import Path
 
+from pyfakefs.fake_filesystem import FakeFilesystem
 from pytest import warns
 from pytest_subprocess.fake_process import FakeProcess
-
-from tests.conftest import call_list
 
 from fab.artefacts import ArtefactSet
 from fab.build_config import BuildConfig
@@ -20,16 +19,18 @@ from fab.tools.compiler import FortranCompiler
 from fab.tools.linker import Linker
 from fab.tools.tool_box import ToolBox
 
+from tests.conftest import call_list
+
 
 class TestLinkExe:
     """
     Tests linking an executable.
     """
-    def test_run(self, fake_process: FakeProcess, monkeypatch) -> None:
+    def test_run(self, fs: FakeFilesystem, fake_process: FakeProcess, monkeypatch) -> None:
         """
         Tests correct formation of command.
         """
-
+        fs.create_file('/bin/sfc', create_missing_dirs=True, st_mode=0o755)
         version_command = ['sfc', '--version']
         fake_process.register(version_command, stdout='1.2.3')
         link_command = ['sfc', 'bar.o', 'foo.o',

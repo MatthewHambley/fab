@@ -3,9 +3,8 @@
 # For further details please refer to the file COPYRIGHT
 # which you should have received as part of this distribution
 ##############################################################################
-
-"""This file contains the base class for any compiler, and derived
-classes for gcc, gfortran, icc, ifort
+"""
+Compiler tool support.
 """
 
 import re
@@ -42,9 +41,6 @@ class Compiler(CompilerSuiteTool):
         of the output file
     :param openmp_flag: the flag to use to enable OpenMP. If no flag is
         specified, it is assumed that the compiler does not support OpenMP.
-    :param availability_option: a command line option for the tool to test
-        if the tool is available on the current system. Defaults to
-        `--version`.
     '''
 
     # pylint: disable=too-many-arguments
@@ -57,10 +53,8 @@ class Compiler(CompilerSuiteTool):
                  compile_flag: Optional[str] = None,
                  output_flag: Optional[str] = None,
                  openmp_flag: Optional[str] = None,
-                 version_argument: Optional[str] = None,
-                 availability_option: Optional[Union[str, List[str]]] = None):
-        super().__init__(name, exec_name, suite, category=category,
-                         availability_option=availability_option)
+                 version_argument: Optional[str] = None):
+        super().__init__(name, exec_name, suite, category=category)
         self._version: Union[Tuple[int, ...], None] = None
         self._mpi = mpi
         self._compile_flag = compile_flag if compile_flag else "-c"
@@ -216,13 +210,14 @@ class Compiler(CompilerSuiteTool):
         # The implementations depend on vendor
         output = self.run_version_command(self.__version_argument)
 
-        # Multiline is required in case that the version number is the end
+        # Multiline is required in case the version number is the end
         # of the string, otherwise the $ would not match the end of line
-        matches = re.search(self._version_regex, output, re.MULTILINE)
-        if not matches:
+        match = re.search(self._version_regex, output, re.MULTILINE)
+        if match:
+            version_string = match.groups()[0]
+        else:
             raise RuntimeError(f"Unexpected version output format for "
                                f"compiler '{self.name}': {output}")
-        version_string = matches.groups()[0]
         # Expect the version to be dot-separated integers.
         try:
             # Make mypy happy:
@@ -301,15 +296,13 @@ class CCompiler(Compiler):
                  compile_flag: Optional[str] = None,
                  output_flag: Optional[str] = None,
                  openmp_flag: Optional[str] = None,
-                 version_argument: Optional[str] = None,
-                 availability_option: Optional[str] = None):
+                 version_argument: Optional[str] = None):
         super().__init__(name, exec_name, suite,
                          category=Category.C_COMPILER, mpi=mpi,
                          compile_flag=compile_flag, output_flag=output_flag,
                          openmp_flag=openmp_flag,
                          version_argument=version_argument,
-                         version_regex=version_regex,
-                         availability_option=availability_option)
+                         version_regex=version_regex)
 
 
 # ============================================================================

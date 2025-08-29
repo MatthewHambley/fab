@@ -8,8 +8,10 @@ Exercise compiler tools.
 """
 from pathlib import Path
 from textwrap import dedent
+from typing import Tuple
 from unittest import mock
 
+from pyfakefs.fake_filesystem import FakeFilesystem
 from pytest import mark, raises, warns
 from pytest_subprocess.fake_process import FakeProcess
 
@@ -56,10 +58,10 @@ def test_compiler_exec_paths() -> None:
     cc = Compiler("gcc", "gcc", "gnu", version_regex="",
                   category=Category.C_COMPILER, openmp_flag="-fopenmp")
     assert cc.exec_name == "gcc"
-    assert cc.exec_path == Path("gcc")
+    assert cc.executable == Path("gcc")
     cc.set_full_path(Path("/usr/bin/gcc"))
     assert cc.exec_name == "gcc"
-    assert cc.exec_path == Path("/usr/bin/gcc")
+    assert cc.executable == Path("/usr/bin/gcc")
 
 
 def test_compiler_openmp() -> None:
@@ -109,20 +111,27 @@ def test_compiler_check_available_runtime_error():
 
 
 def test_compiler_hash():
-    '''Test the hash functionality.'''
-    cc = Gcc()
-    with mock.patch.object(cc, "_version", (5, 6, 7)):
-        hash1 = cc.get_hash()
-        assert hash1 == 2991650113
+    """
+    Tests the hash functionality.
+    """
+    cc1 = Compiler("Some compiler", 'scc', 'test', r'[/d.]+',
+                  Category.C_COMPILER)
+    with mock.patch.object(cc1, "_version", (5, 6, 7)):
+        hash1 = cc1.get_hash()
+        assert hash1 == 2322334684
 
     # A change in the version number must change the hash:
-    with mock.patch.object(cc, "_version", (8, 9)):
-        hash2 = cc.get_hash()
+    cc2 = Compiler("Some compiler", 'scc', 'test', r'[/d.]+',
+                   Category.C_COMPILER)
+    with mock.patch.object(cc2, "_version", (8, 9)):
+        hash2 = cc2.get_hash()
         assert hash2 != hash1
 
-        # A change in the name must change the hash, again:
-        cc._name = "new_name"
-        hash3 = cc.get_hash()
+    # A change in the name must change the hash, again:
+    cc3 = Compiler("Some other compiler", 'scc', 'test', r'[/d.]+',
+                   Category.C_COMPILER)
+    with mock.patch.object(cc3, "_version", (8, 9)):
+        hash3 = cc3.get_hash()
         assert hash3 not in (hash1, hash2)
 
 
@@ -275,164 +284,131 @@ def test_compiler_with_add_args(stub_configuration: BuildConfig,
 # ============================================================================
 # Test version number handling
 # ============================================================================
-def test_get_version_string():
-    '''Tests the get_version_string() method.
-    '''
-    full_output = 'GNU Fortran (gcc) 6.1.0'
-
-    c = Gfortran()
-    with mock.patch.object(c, "run", mock.Mock(return_value=full_output)):
-        assert c.get_version_string() == "6.1.0"
-
-
-def test_get_version_1_part_version():
-    '''
-    Tests the get_version() method with an invalid format.
-    If the version is just one integer, that is invalid and we must raise an
-    error. '''
-    full_output = dedent("""
-        GNU Fortran (gcc) 777
-        Copyright (C) 2022 Foo Software Foundation, Inc.
-    """)
-    expected_error = "Unexpected version output format for compiler"
-
-    c = Gfortran()
-    with mock.patch.object(c, "run", mock.Mock(return_value=full_output)):
-        with raises(RuntimeError) as err:
-            c.get_version()
-        assert expected_error in str(err.value)
+def test_get_version_string(fs: FakeFilesystem, fake_process: FakeProcess):
+    """
+    Checks extraction of the version string.
+    """
+    fs.create_file('/bin/sfc', create_missing_dirs=True, st_mode=0o755)
+    fake_process.register(['sfc', '--version'], stdout='2.3.4')
+    fc = Compiler("Some Fortran", 'sfc', 'test', r'([\d.]+)',
+                  category=Category.FORTRAN_COMPILER)
+    assert fc.get_version_string() == '2.3.4'
 
 
-def test_get_version_2_part_version():
-    '''
-    Tests the get_version() method with a valid format.
-    Test major.minor format.
-    '''
-    full_output = dedent("""
-        GNU Fortran (gcc) 5.6 123456 (Foo Hat 1.2.3-45)
-        Copyright (C) 2022 Foo Software Foundation, Inc.
-    """)
-    c = Gfortran()
-    with mock.patch.object(c, "run", mock.Mock(return_value=full_output)):
-        assert c.get_version() == (5, 6)
+@mark.parametrize('version, expected', [
+    ('1.2', (1, 2)),  # major.minor
+    ('3.4.5', (3, 4, 5)),   # major.minor.patch
+    ('6.7.8.9', (6, 7, 8, 9))  # major.minor.patch.revision
+])
+def test_get_version_2_part_version(version: str, expected: Tuple[int, ...],
+                                    fs: FakeFilesystem, fake_process: FakeProcess):
+    """
+    Tests valid version formats.
+    """
+    fs.create_file('/bin/sfc', create_missing_dirs=True, st_mode=0o755)
+    fake_process.register(['sfc', '--version'], stdout=version)
+    fc = Compiler("Some Fortran", 'sfc', 'test', r'([\d.]+)',
+                  category=Category.FORTRAN_COMPILER)
+    assert fc.get_version() == expected
 
 
-def test_get_version_3_part_version():
-    '''
-    Tests the get_version() method with a valid format.
-    Test major.minor.patch format.
-    '''
-    full_output = 'GNU Fortran (gcc) 6.1.0'
-    c = Gfortran()
-    with mock.patch.object(c, "run", mock.Mock(return_value=full_output)):
-        assert c.get_version() == (6, 1, 0)
-
-
-def test_get_version_4_part_version():
-    '''
-    Tests the get_version() method with a valid format.
-    Test major.minor.patch.revision format.
-    '''
-    full_output = 'GNU Fortran (gcc) 19.0.0.117 20180804'
-    c = Gfortran()
-    with mock.patch.object(c, "run", mock.Mock(return_value=full_output)):
-        assert c.get_version() == (19, 0, 0, 117)
-
-
-@mark.parametrize("version", ["5.15f.2",
-                              ".0.5.1",
-                              "0.5.1.",
-                              "0.5..1"])
-def test_get_version_non_int_version_format(version):
-    '''
-    Tests the get_version() method with an invalid format.
-    If the version contains non-number characters, we must raise an error.
-    TODO: the current code does not detect an error in case of `1.2..`,
-    i.e. a trailing ".".
-    '''
-    full_output = dedent(f"""
-        GNU Fortran (gcc) {version} (Foo Hat 4.8.5)
-        Copyright (C) 2022 Foo Software Foundation, Inc.
-    """)
-    expected_error = "Unexpected version output format for compiler"
-
-    c = Gfortran()
-    with mock.patch.object(c, "run", mock.Mock(return_value=full_output)):
-        with raises(RuntimeError) as err:
-            c.get_version()
-        assert expected_error in str(err.value)
-
-
-def test_get_version_unknown_version_format():
-    '''
-    Tests the get_version() method with an invalid format.
-    If the version is in an unknown format, we must raise an error.
-    '''
-
-    full_output = dedent("""
-        Foo Fortran version 175
-    """)
-    expected_error = "Unexpected version output format for compiler"
-
-    c = Gfortran()
-    with mock.patch.object(c, "run", mock.Mock(return_value=full_output)):
-        with raises(RuntimeError) as err:
-            c.get_version()
-        assert expected_error in str(err.value)
-
-
-def test_get_version_command_failure():
-    '''If the version command fails, we must raise an error.'''
-    c = Gfortran(exec_name="does_not_exist")
+def test_get_version_1_part_version(fs: FakeFilesystem,
+                                    fake_process: FakeProcess):
+    """
+    Checks a bad, single integer, version.
+    """
+    fs.create_file('/bin/sfc', create_missing_dirs=True, st_mode=0o755)
+    fake_process.register(['sfc', '--version'], stdout='777')
+    fc = Compiler("Some Fortran", 'sfc', 'test', r'([\d.]+)',
+                  category=Category.FORTRAN_COMPILER)
     with raises(RuntimeError) as err:
-        c.get_version()
-    assert "Error asking for version of compiler" in str(err.value)
+        fc.get_version()
+    assert str(err.value) == ("Unexpected version output format for compiler"
+                              " 'Some Fortran'. Should have at least two parts,"
+                              " <n.n[.n, ...]>: 777")
 
 
-def test_get_version_unknown_command_response():
-    '''If the full version output is in an unknown format,
-    we must raise an error.'''
-    full_output = 'GNU Fortran  1.2.3'
-    expected_error = "Unexpected version output format for compiler"
+@mark.parametrize("version", [".0.5.1",
+                              "0.5.1.",
+                              "0.5..1",
+                              '0.5.1..'])
+def test_get_version_non_int_version_format(version, fs: FakeFilesystem,
+                                            fake_process: FakeProcess):
+    """
+    Tests the get_version() method with an invalid format.
 
-    c = Gfortran()
-    with mock.patch.object(c, "run", mock.Mock(return_value=full_output)):
-        with raises(RuntimeError) as err:
-            c.get_version()
-        assert expected_error in str(err.value)
+    If the version contains non-number characters, we must raise an error.
 
-
-def test_get_version_good_result_is_cached():
-    '''Checks that the compiler is only run once to extract the version.
-    '''
-    valid_output = "GNU Fortran (gcc) 6.1.0"
-    expected = (6, 1, 0)
-    c = Gfortran()
-    with mock.patch.object(c, 'run', mock.Mock(return_value=valid_output)):
-        assert c.get_version() == expected
-        assert c.run.called
-
-    # Now let the run method raise an exception, to make sure we get a cached
-    # value back (and the run method isn't called again):
-    with mock.patch.object(c, 'run', side_effect=RuntimeError()):
-        assert c.get_version() == expected
-        assert not c.run.called
+    Todo: Not sure about these tests. They mostly seem to be testing the regex.
+    """
+    fs.create_file('/bin/sfc', create_missing_dirs=True, st_mode=0o755)
+    fake_process.register(['sfc', '--version'], stdout=version)
+    fc = Compiler("Some Fortran", 'sfc', 'test', r'([\d.]+)',
+                  category=Category.FORTRAN_COMPILER)
+    with raises(RuntimeError) as err:
+        fc.get_version()
+    assert str(err.value) == ("Unexpected version output format for compiler"
+                              " 'Some Fortran'. Should be numeric"
+                              " <n.n[.n, ...]>: " + version)
 
 
-def test_get_version_bad_result_is_not_cached():
-    '''Checks that the compiler can be re-run after failing to get the version.
-    '''
-    # Set up the compiler to fail the first time
-    c = Gfortran()
-    with mock.patch.object(c, 'run', side_effect=RuntimeError()):
-        with raises(RuntimeError):
-            c.get_version()
+def test_get_version_command_failure(fs: FakeFilesystem,
+                                     fake_process: FakeProcess):
+    """
+    Checks version failure throws an error.
+    """
+    fs.create_file('/bin/sfc', create_missing_dirs=True, st_mode=0o755)
+    fake_process.register(['sfc', '--version'], returncode=1)
+    fc = Compiler("Some Fortran", 'sfc', 'test', r'([\d.]+)',
+                  category=Category.FORTRAN_COMPILER)
+    with raises(RuntimeError) as err:
+        fc.get_version()
+    assert str(err.value) == "Error asking for version of compiler 'Some Fortran'"
 
-    # Now let the run method run successfully and we should get the version.
-    valid_output = "GNU Fortran (gcc) 6.1.0"
-    with mock.patch.object(c, 'run', mock.Mock(return_value=valid_output)):
-        assert c.get_version() == (6, 1, 0)
-        assert c.run.called
+
+def test_get_version_unknown_version(fs: FakeFilesystem,
+                                     fake_process: FakeProcess):
+    """
+    Checks baddly formatted version throws an error
+    """
+    fs.create_file('/bin/sfc', create_missing_dirs=True, st_mode=0o755)
+    fake_process.register(['sfc', '--version'], stdout="Bad version number")
+    fc = Compiler("Some Fortran", 'sfc', 'test', r'([\d.]+)',
+                  category=Category.FORTRAN_COMPILER)
+    with raises(RuntimeError) as err:
+        fc.get_version()
+    assert str(err.value) == ("Unexpected version output format for compiler"
+                              " 'Some Fortran': Bad version number")
+
+
+def test_get_version_good_result_is_cached(fs: FakeFilesystem,
+                                           fake_process: FakeProcess):
+    """
+    Ensures the compiler is run once only for version details.
+    """
+    fs.create_file('/bin/sfc', create_missing_dirs=True, st_mode=0o755)
+    fake_process.register(['sfc', '--version'], stdout="1.2.3")
+    fc = Compiler("Some Fortran", 'sfc', 'test', r'([\d.]+)',
+                  category=Category.FORTRAN_COMPILER)
+    assert fc.get_version() == (1, 2, 3)
+    assert fc.get_version() == (1, 2, 3)
+    assert call_list(fake_process) == [['sfc', '--version']]
+
+
+def test_get_version_bad_result_is_not_cached(fs: FakeFilesystem,
+                                              fake_process: FakeProcess):
+    """
+    Checks that the compiler can be re-run after failing to get the version.
+    """
+    fs.create_file('/bin/sfc', create_missing_dirs=True, st_mode=0o755)
+    fake_process.register(['sfc', '--version'], stdout="Bad version")
+    fc = Compiler("Some Fortran", 'sfc', 'test', r'([\d.]+)',
+                  category=Category.FORTRAN_COMPILER)
+    with raises(RuntimeError):
+        fc.get_version()
+    fake_process.register(['sfc', '--version'], stdout="5.6.7")
+    assert fc.get_version() == (5, 6, 7)
+    assert call_list(fake_process) == [['sfc', '--version'], ['sfc', '--version']]
 
 
 # ============================================================================
@@ -806,8 +782,12 @@ def test_nvc():
     assert not nvc.mpi
 
 
-def test_nvc_get_version_23_5_0(fake_process: FakeProcess) -> None:
-    '''Test nvc 23.5.0 version detection.'''
+def test_nvc_get_version_23_5_0(fs: FakeFilesystem,
+                                fake_process: FakeProcess) -> None:
+    """
+    Tests nvc 23.5.0 version detection.
+    """
+    fs.create_file('/bin/nvc', create_missing_dirs=True, st_mode=0o755)
     version_string = dedent("""
 nvc 23.5-0 64-bit target on x86-64 Linux -tp icelake-server
 NVIDIA Compilers and Tools
@@ -845,8 +825,12 @@ def test_nvfortran():
     assert not nvfortran.mpi
 
 
-def test_nvfortran_get_version_23_5_0(fake_process: FakeProcess) -> None:
-    '''Test nvfortran 23.5 version detection.'''
+def test_nvfortran_get_version_23_5_0(fs: FakeFilesystem,
+                                      fake_process: FakeProcess) -> None:
+    """
+    Tests nvfortran 23.5 version detection.
+    """
+    fs.create_file('/bin/nvfortran', create_missing_dirs=True, st_mode=0o755)
     version_string = dedent("""
 nvfortran 23.5-0 64-bit target on x86-64 Linux -tp icelake-server
 NVIDIA Compilers and Tools

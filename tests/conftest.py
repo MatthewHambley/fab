@@ -9,6 +9,7 @@ Fixtures and helpers for testing.
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from pyfakefs.fake_filesystem import FakeFilesystem
 from pytest import fixture
 from pytest_subprocess.fake_process import FakeProcess, ProcessRecorder
 
@@ -108,10 +109,11 @@ def subproc_record(fake_process: FakeProcess) -> ExtendedRecorder:
 
 
 @fixture(scope='function')
-def stub_fortran_compiler() -> FortranCompiler:
+def stub_fortran_compiler(fs: FakeFilesystem) -> FortranCompiler:
     """
     Provides a minimal Fortran compiler.
     """
+    fs.create_file('/bin/sfc', create_missing_dirs=True, st_mode=0o755)
     compiler = FortranCompiler('some Fortran compiler', 'sfc', 'stub',
                                r'([\d.]+)', openmp_flag='-omp',
                                module_folder_flag='-mods')
@@ -119,10 +121,11 @@ def stub_fortran_compiler() -> FortranCompiler:
 
 
 @fixture(scope='function')
-def stub_c_compiler() -> CCompiler:
+def stub_c_compiler(fs: FakeFilesystem) -> CCompiler:
     """
     Provides a minial C compiler.
     """
+    fs.create_file('/bin/scc', create_missing_dirs=True, st_mode=0o755)
     compiler = CCompiler("some C compiler", "scc", "stub",
                          version_regex=r"([\d.]+)", openmp_flag='-omp')
     return compiler
@@ -149,15 +152,11 @@ def return_true():
 @fixture(scope='function')
 def stub_tool_box(stub_fortran_compiler,
                   stub_c_compiler,
-                  stub_linker,
-                  monkeypatch) -> ToolBox:
+                  stub_linker) -> ToolBox:
     """
     Provides a minimal toolbox containing just Fortran and C compilers and a
     linker.
     """
-    monkeypatch.setattr(stub_fortran_compiler, 'check_available', return_true)
-    monkeypatch.setattr(stub_c_compiler, 'check_available', return_true)
-    monkeypatch.setattr(stub_linker, 'check_available', return_true)
     toolbox = ToolBox()
     toolbox.add_tool(stub_fortran_compiler)
     toolbox.add_tool(stub_c_compiler)
@@ -166,9 +165,9 @@ def stub_tool_box(stub_fortran_compiler,
 
 
 @fixture(scope='function')
-def stub_configuration(stub_tool_box: ToolBox, tmp_path: Path) -> BuildConfig:
+def stub_configuration(stub_tool_box: ToolBox) -> BuildConfig:
     """
     Provides a minimal configuration with stub compilers.
     """
     return BuildConfig("Stub config", stub_tool_box,
-                       fab_workspace=tmp_path / 'fab')
+                       fab_workspace=Path('/home/user/fab'))

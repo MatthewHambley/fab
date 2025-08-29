@@ -15,8 +15,11 @@ from fab.steps.compile_fortran import (
     store_artefacts
 )
 from fab.tools.category import Category
+from fab.tools.compiler import FortranCompiler
 from fab.tools.tool_box import ToolBox
 from fab.util import CompiledFile
+
+from source.fab.tools.tool_repository import ToolRepository
 
 
 @fixture(scope='function')
@@ -73,8 +76,9 @@ def test_compile_cc_wrong_compiler(stub_tool_box,
 
 class TestCompilePass:
 
-    def test_vanilla(self, analysed_files, stub_tool_box: ToolBox,
-                     tmp_path: Path, fake_process: FakeProcess) -> None:
+    def test_vanilla(self, analysed_files,
+                     tmp_path: Path, fake_process: FakeProcess,
+                     monkeypatch) -> None:
         """
         Tests only uncompiled artefacts are compiled.
 
@@ -83,19 +87,32 @@ class TestCompilePass:
         """
         a, b, c = analysed_files
 
+        bin_dir = tmp_path / 'bin'
+        bin_dir.mkdir()
+        monkeypatch.setenv('PATH', str(bin_dir), ':')
+
+        (bin_dir / 'sfc').touch(0o755)
         fake_process.register(['sfc', '--version'], stdout='1.2.3')
         fake_process.register(['sfc', fake_process.any()])
 
+        ToolRepository._singleton = None
+        tool_box = ToolBox()
+        tool_box.add_tool(FortranCompiler("Some Fortran", 'sfc', 'test',
+                                          r'([\d.]+)'))
+
         uncompiled = {a, b}
         compiled = {
-            c.fpath: CompiledFile(c.fpath,
-                                  tmp_path / 'proj/build_output/_prebuild/' / c.fpath.name)
+            c.fpath: CompiledFile(
+                c.fpath,
+                tmp_path / '/work/proj/build_output/_prebuild/' / c.fpath.name
+            )
         }
 
         # this gets filled in
         mod_hashes: Dict[str, int] = {}
 
-        config = BuildConfig('proj', stub_tool_box, fab_workspace=tmp_path)
+        config = BuildConfig('proj', tool_box,
+                             fab_workspace=tmp_path / 'work')
         mp_common_args = MpCommonArgs(config,
                                       FlagsConfig(),
                                       {},

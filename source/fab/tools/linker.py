@@ -50,7 +50,7 @@ class Linker(CompilerSuiteTool):
 
         super().__init__(
             name=name,
-            exec_name=compiler.exec_path,
+            executable=compiler.executable,
             suite=self.suite,
             category=Category.LINKER)
 

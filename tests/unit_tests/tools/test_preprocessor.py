@@ -9,6 +9,8 @@ Tests source preprocessor tools.
 from logging import Logger
 from pathlib import Path
 
+from pyfakefs.fake_filesystem import FakeFilesystem
+
 from tests.conftest import ExtendedRecorder
 
 from pytest import mark
@@ -32,17 +34,17 @@ def test_constructor() -> None:
     assert isinstance(tool.logger, Logger)
 
 
-@mark.parametrize('rc', [0, 1])
-def test_fpp_is_available(rc, fake_process: FakeProcess) -> None:
+@mark.parametrize('available', [True, False])
+def test_fpp_is_available(available: bool, fs: FakeFilesystem) -> None:
     """
     Tests availability check for Intel's "fpp" tool.
     """
-    command = ['fpp', '-what']
-    fake_process.register(command, returncode=rc)
-
+    if available:
+        fs.create_file('/bin/fpp', create_missing_dirs=True, st_mode=0o755)
+    else:
+        fs.create_dir('/bin')
     fpp = Fpp()
-    assert fpp.is_available is (rc == 0)
-    assert call_list(fake_process) == [command]
+    assert fpp.is_available is available
 
 
 class TestCpp:
@@ -54,24 +56,28 @@ class TestCpp:
         cpp.run("--version")
         assert subproc_record.invocations() == [['cpp', '--version']]
 
-    def test_is_not_available(self, fake_process: FakeProcess) -> None:
-        fake_process.register(['cpp', '--version'], returncode=1)
+    @mark.parametrize('available', [True, False])
+    def test_is_available(self, available: bool, fs: FakeFilesystem) -> None:
+        if available:
+            fs.create_file('/bin/cpp', create_missing_dirs=True, st_mode=0o755)
+        else:
+            fs.create_dir('/bin')
         cpp = Cpp()
-        assert cpp.is_available is False
-        assert call_list(fake_process) == [['cpp', '--version']]
+        assert cpp.is_available is available
 
 
 class TestCppTraditional:
-    def test_is_not_available(self, fake_process: FakeProcess) -> None:
+    @mark.parametrize('available', [True, False])
+    def test_is_available(self, available: bool, fs: FakeFilesystem) -> None:
         """
         Tests CPP in "traditional" mode.
         """
-        command = ['cpp', '-traditional-cpp', '-P', '--version']
-        fake_process.register(command, returncode=1)
-
+        if available:
+            fs.create_file('/bin/cpp', create_missing_dirs=True, st_mode=0o755)
+        else:
+            fs.create_dir('/bin')
         cppf = CppFortran()
-        assert cppf.is_available is False
-        assert call_list(fake_process) == [command]
+        assert cppf.is_available is available
 
     def test_preprocess(self, subproc_record: ExtendedRecorder) -> None:
         cppf = CppFortran()
