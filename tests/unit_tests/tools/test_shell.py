@@ -8,12 +8,11 @@ Tests Shell tools.
 """
 from pyfakefs.fake_filesystem import FakeFilesystem
 from pytest import mark
-from pytest_subprocess.fake_process import FakeProcess
 
 from fab.tools.category import Category
 from fab.tools.shell import Shell
 
-from tests.conftest import ExtendedRecorder, call_list, not_found_callback
+from tests.conftest import ExtendedRecorder
 
 
 def test_constructor() -> None:

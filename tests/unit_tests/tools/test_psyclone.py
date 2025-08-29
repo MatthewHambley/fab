@@ -13,7 +13,7 @@ from typing import Optional, Tuple
 from unittest.mock import Mock
 
 from pyfakefs.fake_filesystem import FakeFilesystem
-from pytest import mark, raises, warns
+from pytest import mark, raises
 from pytest_subprocess.fake_process import FakeProcess
 
 from fab.tools.category import Category
@@ -21,7 +21,7 @@ import fab.tools.psyclone  # Needed for mockery
 from fab.tools.psyclone import Psyclone
 
 from source.fab import FabException
-from tests.conftest import call_list, not_found_callback
+from tests.conftest import call_list
 
 
 def test_constructor():
@@ -79,8 +79,8 @@ def test_check_available_bad_version(fs: FakeFilesystem,
     psyclone = Psyclone()
 
     with raises(FabException,
-               match="Unexpected version information for PSyclone: "
-                     "'PSyclone version: NOT_A_NUMBER.4.0'"):
+                match="Unexpected version information for PSyclone: "
+                      "'PSyclone version: NOT_A_NUMBER.4.0'"):
         _ = psyclone.is_available
 
 

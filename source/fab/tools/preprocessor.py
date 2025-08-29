@@ -10,7 +10,7 @@ classes for cpp and fpp.
 """
 
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Union
 
 from fab.tools.category import Category
 from fab.tools.tool import Tool

@@ -20,8 +20,7 @@ from pytest_subprocess.fake_process import FakeProcess
 from fab.tools.category import Category
 from fab.tools.versioning import Fcm, Git, Subversion
 
-from tests.conftest import (ExtendedRecorder,
-                            arg_list, call_list, not_found_callback)
+from tests.conftest import ExtendedRecorder, arg_list, call_list
 
 
 class TestGit:

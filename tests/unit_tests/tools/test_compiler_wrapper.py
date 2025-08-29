@@ -19,7 +19,7 @@ from fab.tools.compiler_wrapper import (CompilerWrapper,
                                         CrayCcWrapper, CrayFtnWrapper,
                                         Mpicc, Mpif90)
 
-from tests.conftest import ExtendedRecorder, call_list, not_found_callback
+from tests.conftest import ExtendedRecorder, call_list
 
 
 def test_compiler_getter(stub_c_compiler: CCompiler) -> None:

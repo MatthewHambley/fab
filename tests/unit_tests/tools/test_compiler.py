@@ -115,7 +115,7 @@ def test_compiler_hash():
     Tests the hash functionality.
     """
     cc1 = Compiler("Some compiler", 'scc', 'test', r'[/d.]+',
-                  Category.C_COMPILER)
+                   Category.C_COMPILER)
     with mock.patch.object(cc1, "_version", (5, 6, 7)):
         hash1 = cc1.get_hash()
         assert hash1 == 2322334684

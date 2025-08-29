@@ -84,4 +84,5 @@ def test_add_unavailable_tool(fs: FakeFilesystem) -> None:
     tool = Tool("Some tool", 'stool')
     with raises(RuntimeError) as err:
         tb.add_tool(tool)
-    assert str(err.value) == f"Tool 'Tool - Some tool: stool' is not available."
+    assert (str(err.value)
+            == "Tool 'Tool - Some tool: stool' is not available.")

@@ -10,16 +10,12 @@ from logging import Logger
 from pathlib import Path
 
 from pyfakefs.fake_filesystem import FakeFilesystem
-
-from tests.conftest import ExtendedRecorder
-
 from pytest import mark
-from pytest_subprocess.fake_process import FakeProcess
-
-from tests.conftest import call_list
 
 from fab.tools.category import Category
 from fab.tools.preprocessor import Cpp, CppFortran, Fpp, Preprocessor
+
+from tests.conftest import ExtendedRecorder
 
 
 def test_constructor() -> None:

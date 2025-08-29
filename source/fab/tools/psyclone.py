@@ -91,7 +91,7 @@ class Psyclone(Tool):
         :param kernel_roots: optional directories with kernels.
         '''
         try:
-            _ =  self.is_available
+            _ = self.is_available
         except RuntimeError as ex:
             raise RuntimeError(
                 "PSyclone present but version unobtainable."

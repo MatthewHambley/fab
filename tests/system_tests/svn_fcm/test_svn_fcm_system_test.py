@@ -15,7 +15,6 @@ import warnings
 
 import pytest
 
-import fab
 from fab.build_config import BuildConfig
 from fab.tools import Fcm, Subversion, ToolBox
 from fab.steps.grab.fcm import fcm_checkout, fcm_export, fcm_merge
@@ -159,21 +158,14 @@ class TestCheckout():
 
     @pytest.mark.parametrize('checkout_func', checkout_funcs)
     def test_working_copy(self, file2_experiment, config, checkout_func):
-        '''Make sure we can checkout into a working copy. The scenario
+        """
+        Make sure we can checkout into a working copy. The scenario
         we're testing here is checking out across multiple builds. This will
         usually be the same revision. The first run in a new folder will be a
         checkout, and subsequent runs will use update, which can handle a
         version bump. Since we can change the revision and expect it to work,
-        let's test that while we're here.'''
-
-        # pylint: disable=comparison-with-callable
-        if checkout_func == svn_checkout:
-            expect_tool = 'svn'
-        elif checkout_func == fcm_checkout:
-            expect_tool = 'fcm'
-        else:
-            assert False
-
+        let's test that while we're here.
+        """
         with pytest.warns(UserWarning, match="_metric_send_conn not set, cannot send metrics"):
             checkout_func(config, src=file2_experiment, dst_label='proj', revision='7')
             assert confirm_file2_experiment_r7(config)

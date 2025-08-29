@@ -19,7 +19,7 @@ from fab.tools.compiler import CCompiler, FortranCompiler
 from fab.tools.compiler_wrapper import CompilerWrapper, Mpif90
 from fab.tools.linker import Linker
 
-from tests.conftest import ExtendedRecorder, not_found_callback
+from tests.conftest import ExtendedRecorder
 
 
 def test_c_linker(stub_c_compiler: CCompiler) -> None:

@@ -15,7 +15,7 @@ from pytest_subprocess.fake_process import FakeProcess
 from fab.tools.category import Category
 from fab.tools.rsync import Rsync
 
-from tests.conftest import call_list, not_found_callback
+from tests.conftest import call_list
 
 
 def test_constructor():
