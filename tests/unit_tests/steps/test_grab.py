@@ -16,8 +16,7 @@ from fab.build_config import BuildConfig
 from fab.steps.grab.fcm import fcm_export
 from fab.steps.grab.folder import grab_folder
 from fab.tools.tool_box import ToolBox
-
-from source.fab.tools.tool_repository import ToolRepository
+from fab.tools.tool_repository import ToolRepository
 
 
 class TestGrabFolder:

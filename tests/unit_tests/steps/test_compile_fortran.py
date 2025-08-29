@@ -17,9 +17,8 @@ from fab.steps.compile_fortran import (
 from fab.tools.category import Category
 from fab.tools.compiler import FortranCompiler
 from fab.tools.tool_box import ToolBox
+from fab.tools.tool_repository import ToolRepository
 from fab.util import CompiledFile
-
-from source.fab.tools.tool_repository import ToolRepository
 
 
 @fixture(scope='function')

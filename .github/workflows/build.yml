@@ -47,7 +47,7 @@ jobs:
         run: |
           pip install -e .[dev]
           pip install pytest
-          python -m mypy source tests
+          python -m mypy --no-namespace-packages source tests
 
       - name: Code style check with flake8
         run: |

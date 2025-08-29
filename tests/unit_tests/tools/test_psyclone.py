@@ -16,11 +16,11 @@ from pyfakefs.fake_filesystem import FakeFilesystem
 from pytest import mark, raises
 from pytest_subprocess.fake_process import FakeProcess
 
+from fab import FabException
 from fab.tools.category import Category
 import fab.tools.psyclone  # Needed for mockery
 from fab.tools.psyclone import Psyclone
 
-from source.fab import FabException
 from tests.conftest import call_list
 
 

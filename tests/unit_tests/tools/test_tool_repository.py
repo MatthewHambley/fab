@@ -117,8 +117,9 @@ def test_get_tool_error(fs: FakeFilesystem):
     fs.create_dir('/bin')
     ToolRepository._singleton = None
     tr = ToolRepository()
+    # Bad category type
     with raises(KeyError) as err:
-        tr.get_tool("unknown-category", "something")
+        tr.get_tool("unknown-category", "something")  # type: ignore[arg-type]
     assert "Unknown category 'unknown-category'" in str(err.value)
 
     with raises(KeyError) as err:

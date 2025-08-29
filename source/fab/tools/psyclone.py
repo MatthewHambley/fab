@@ -13,7 +13,7 @@ from typing import Callable, List, Optional, Tuple, Union, TYPE_CHECKING
 from fab.tools.category import Category
 from fab.tools.tool import Tool
 
-from source.fab import FabException
+from fab import FabException
 
 if TYPE_CHECKING:
     # TODO 314: see if this circular dependency can be broken
