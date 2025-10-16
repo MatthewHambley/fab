@@ -51,12 +51,12 @@ jobs:
           # echo "LD_LIBRARY_PATH=${ALT_LLVM_PATH}/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
           # xxxx
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 1
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
