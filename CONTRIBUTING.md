@@ -37,7 +37,7 @@ affiliation.
 +-----------------+-----------------+-------------+
 | GitHub Username | Real Name       | Affiliation |
 +=================+=================+=============+
-| MatthewHambley  | Matthew Hambley | Met Office  |
+| @MatthewHambley | Matthew Hambley | Met Office  |
 +-----------------+-----------------+-------------+
 
 ## Contributor Licence Agreement and Certificate of Origin
