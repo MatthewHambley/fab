@@ -54,7 +54,7 @@ By making a contribution to this project, I certify that:
    with modifications, whether created in whole or in part by me, under the
    terms and conditions as described by this file; or
 1. The contribution was provided directly to me by some other person who
-   certified (a) or (b) and I have not modified it.
+   certified (1) or (2) and I have not modified it.
 1. I understand and agree that this project and the contribution are public and
    that a record of the contribution (including my name and email address) is
    maintained for the full term of the copyright and may be redistributed
