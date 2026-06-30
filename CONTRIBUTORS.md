@@ -30,7 +30,7 @@ at <https://github.com/MetOffice/fab>. You will need a personal fork of the
 repository to host your development branch.
 
 If this is your first contribution, your branch will need to include the
-addition your details to the the following list. If you are not submitting
+addition of your details to the the following list. If you are not submitting
 contributions on behalf of an organisation please use "n/a" for your
 affiliation.
 
