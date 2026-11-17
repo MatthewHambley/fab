@@ -1,3 +1,8 @@
+##############################################################################
+# (C) Crown copyright, Met Office. All rights reserved.
+# The file LICENCE, distributed with this code, contains details of the terms
+# under which the code may be used.
+##############################################################################
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -190,7 +195,7 @@ class SubprocessAction(Action, ABC):
         return None
 
 
-class WorkerException(BaseException, ABC):
+class WorkerException(Exception, ABC):
     """
     Communicates happenings to the farmer.
     """
