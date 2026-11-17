@@ -78,12 +78,12 @@ class TestFortranCompiler:
 
         return filename, environment
 
-    def test_determine_compiler(self,
-                                command: tuple[Path, Path],
-                                environment: tuple[Path, Path],
-                                executable: bool,
-                                tmp_path: Path,
-                                monkeypatch: MonkeyPatch):
+    def test_determine_compiler_command(self,
+                                        command: tuple[Path, Path],
+                                        environment: tuple[Path, Path],
+                                        executable: bool,
+                                        tmp_path: Path,
+                                        monkeypatch: MonkeyPatch):
         command_file, command_arg = command
         environment_file, environment_arg = environment
 
@@ -99,3 +99,12 @@ class TestFortranCompiler:
                 assert compiler == FortranCompiler(environment_file)
             else:
                 assert compiler == FortranCompiler(command_file)
+
+    @mark.parametrize("addendum", ["", "-1.2.3"])
+    def test_determine_compiler_identifier(self, addendum: str,
+                                           tmp_path: Path):
+        filename = tmp_path / f"fortran{addendum}"
+        filename.touch()
+        filename.chmod(0o755)
+        compiler = FortranCompiler.determine_compile(filename)
+        assert compiler.identifier == "fortran"

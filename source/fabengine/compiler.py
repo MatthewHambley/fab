@@ -17,8 +17,16 @@ from fabengine.exception import FabEngineError
 
 
 class FortranCompiler:
-    def __init__(self, command: Path):
+    def __init__(self, command: Path, identifier: str | None = None):
         self._command = command
+
+        if identifier is None:
+            # Sometimes the command has the version tacked on the end. We need
+            # to remove that.
+            #
+            self._identifier = self._command.name.split("-", maxsplit=1)[0]
+        else:  # identifier is not None
+            self._identifier = identifier
 
     def __repr__(self) -> str:
         return f"FortranCompiler({self._command})"
@@ -27,6 +35,10 @@ class FortranCompiler:
         if not isinstance(other, FortranCompiler):
             return False
         return self._command == other._command
+
+    @property
+    def identifier(self) -> str:
+        return self._identifier
 
     @staticmethod
     def determine_compile(filename: Path | None = None) -> FortranCompiler:
